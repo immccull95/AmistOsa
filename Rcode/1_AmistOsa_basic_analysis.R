@@ -1,6 +1,6 @@
 ####################### AmistOsa landscape case study #############################
 # Date: 9-25-23
-# updated:
+# updated: 9-26-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -41,17 +41,30 @@ AmistOsa_DEM <- terra::rast("Data/spatial/SRTM/SRTM_90m_31971_AmistOsa.tif")
 # terra::writeRaster(biomass_mask, filename='Data/spatial/biomass/biomass_300m_31971_AmistOsa.tif', overwrite=T)
 biomass <- terra::rast("Data/spatial/biomass/biomass_300m_31971_AmistOsa.tif")
 
+## LULC (will swap out later for Yana's new classification)
+# lulc <- terra::rast("C:/Users/immcc/Documents/Osa-Conservation-Connectivity-Project/data/spatial/landcover/ESACCI-global-10m_merged.tif")
+# AmistOsa_4326 <- terra::project(AmistOsa, "EPSG:4326")
+# 
+# AmistOsa_lulc <- terra::crop(lulc, AmistOsa_4326, mask=T)
+# AmistOsa_lulc_31971 <- terra::project(AmistOsa_lulc, "EPSG:31971", 
+#                                       method='near', res=c(10,10))
+# AmistOsa_lulc_table <- freq(AmistOsa_lulc)
+# terra::writeRaster(AmistOsa_lulc_31971, filename='Data/spatial/LULC/AmistOsa_lulc_ESACCI_global10m.tif', overwrite=T)
+AmistOsa_lulc <- terra::rast('Data/spatial/LULC/AmistOsa_lulc_ESACCI_global10m.tif')
+
 #### Main program ####
 
 ## Protection within study area
 # Overall protection
 AmistOsa_pa <- terra::intersect(AmistOsa, focal_pa)
+#terra::writeVector(AmistOsa_pa, filename="Data/spatial/protected_areas/AmistOsa_pa.shp", filetype='ESRI Shapefile')
 AmistOsa_pa_totalarea <- sum(terra::expanse(AmistOsa_pa))/1000000
 AmistOsa_landscape_totalarea <- terra::expanse(AmistOsa)/1000000
 
-AmistOsa_pa_totalarea/AmistOsa_landscape_totalarea #38% protected!
+AmistOsa_pa_totalarea/AmistOsa_landscape_totalarea #38% protected! But seems high
 
 ## Attributes of protection (IUCN)
+# It appears that there are some overlapping/duplicated polygons
 nrow(AmistOsa_pa)# number of PAs
 unique(AmistOsa_pa$DESIG_TYPE) #types of PAs
 unique(AmistOsa_pa$IUCN_CAT)
@@ -65,17 +78,28 @@ catIb <- subset(AmistOsa_pa, AmistOsa_pa$IUCN_CAT=='Ib')
 catII <- subset(AmistOsa_pa, AmistOsa_pa$IUCN_CAT=='II')
 catIV <- subset(AmistOsa_pa, AmistOsa_pa$IUCN_CAT=='IV')
 catVI <- subset(AmistOsa_pa, AmistOsa_pa$IUCN_CAT=='VI')
+catNA <- subset(AmistOsa_pa, AmistOsa_pa$IUCN_CAT=='Not Applicable')
 plot(AmistOsa)
 plot(catIb, add=T, col='green')
 plot(catII, add=T, col='forestgreen')
 plot(catIV, add=T, col='khaki')
 plot(catVI, add=T, col='gold')
+plot(catNA, add=T, col='gray')
 
 # proportion of landscape covered by different PA types
 (sum(terra::expanse(catIb)/1000000))/AmistOsa_landscape_totalarea
 (sum(terra::expanse(catII)/1000000))/AmistOsa_landscape_totalarea
 (sum(terra::expanse(catIV)/1000000))/AmistOsa_landscape_totalarea
 (sum(terra::expanse(catVI)/1000000))/AmistOsa_landscape_totalarea
+(sum(terra::expanse(catNA)/1000000))/AmistOsa_landscape_totalarea
+
+# Try "dissolving" polygons to get PA coverage without duplicates/overlap
+# results in more realistic 30% protection
+AmistOsa_pa_dissolved <- terra::aggregate(AmistOsa_pa, dissolve=T)
+plot(AmistOsa)
+plot(AmistOsa_pa_dissolved, col='green', add=T)
+title('Dissolved protected areas')
+(terra::expanse(AmistOsa_pa_dissolved)/1000000)/AmistOsa_landscape_totalarea
 
 # size distributions (sq km)
 hist(AmistOsa_pa$GIS_AREA, main='Overlapping PAs: full area') #full area of PAs
@@ -95,3 +119,11 @@ plot(AmistOsa_TRI)
 plot(biomass)
 summary(biomass)
 hist(biomass)
+
+## LULC
+AmistOsa_lulc_table <- freq(AmistOsa_lulc)
+AmistOsa_lulc_table$Area <- (AmistOsa_lulc_table$count*100)/1000000 #sqkm
+AmistOsa_lulc_table$prop <- AmistOsa_lulc_table$Area/AmistOsa_landscape_totalarea
+
+pie(AmistOsa_lulc_table$prop, col=rainbow(nrow(AmistOsa_lulc_table)),
+    main="AmistOsa LULC")
