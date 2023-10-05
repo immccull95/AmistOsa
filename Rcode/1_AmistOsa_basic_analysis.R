@@ -1,6 +1,6 @@
 ####################### AmistOsa landscape case study #############################
 # Date: 9-25-23
-# updated: 9-26-23
+# updated: 10-4-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -31,6 +31,13 @@ focal_pa$ISO3 <- ifelse(focal_pa$ISO3=='CRI;PAN', 'CRI', focal_pa$ISO3) #one PA 
 # terra::writeRaster(srtm_all_proj_mask, filename='Data/spatial/SRTM/SRTM_90m_31971_AmistOsa.tif', overwrite=T)
 AmistOsa_DEM <- terra::rast("Data/spatial/SRTM/SRTM_90m_31971_AmistOsa.tif")
 #plot(AmistOsa_DEM)
+
+srtm_30m <- terra::rast("Data/spatial/SRTM/output_SRTMGL1.tif")
+srtm_30m_proj <- terra::project(srtm_30m, "EPSG:31971", 
+                                 method='average', res=c(30,30))
+srtm_30m_proj_mask <- terra::crop(srtm_30m_proj, AmistOsa, mask=T)
+#terra::writeRaster(srtm_30m_proj_mask, filename='Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif', overwrite=T)
+AmistOsa_DEM30 <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
 
 # Biomass
 # biomass <- terra::rast("C:/Users/immcc/Documents/Osa-Conservation-Connectivity-Project/data/spatial/biomass/NASA_biomass_desnity_estimation.tif")
@@ -106,14 +113,39 @@ hist(AmistOsa_pa$GIS_AREA, main='Overlapping PAs: full area') #full area of PAs
 hist(terra::expanse(AmistOsa_pa)/1000000, main='Overlapping PAs: overlapping area only')
 
 ## Terrain
-plot(AmistOsa_DEM)
+# 90m
+plot(AmistOsa_DEM, main='90m DEM')
 max(AmistOsa_DEM)
 
 AmistOsa_slope <- terra::terrain(AmistOsa_DEM, v='slope', neighbors=8, unit='degrees')
-plot(AmistOsa_slope)
+plot(AmistOsa_slope, main='Slope 90m DEM')
 
 AmistOsa_TRI <- terra::terrain(AmistOsa_DEM, v='TRI', neighbors=8)
-plot(AmistOsa_TRI)
+plot(AmistOsa_TRI, main='TRI 90m DEM')
+
+#30m
+plot(AmistOsa_DEM30)
+max(AmistOsa_DEM30)
+hist(AmistOsa_DEM30)
+
+AmistOsa_slope30 <- terra::terrain(AmistOsa_DEM30, v='slope', neighbors=8, unit='degrees')
+plot(AmistOsa_slope30, main='Slope 30m DEM')
+#writeRaster(AmistOsa_slope30, filename='Data/spatial/SRTM/AmistOsa_slope30.tif')
+hist(AmistOsa_slope30)
+
+AmistOsa_TRI30 <- terra::terrain(AmistOsa_DEM30, v='TRI', neighbors=8)
+plot(AmistOsa_TRI30, main='TRI 30m DEM')
+#writeRaster(AmistOsa_TRI30, filename='Data/spatial/SRTM/AmistOsa_TRI30.tif')
+hist(AmistOsa_TRI30)
+
+AmistOsa_aspect30 <- terra::terrain(AmistOsa_DEM30, v='aspect', neighbors=8)
+plot(AmistOsa_aspect30, main='Aspect 30m DEM')
+hist(AmistOsa_aspect30)
+
+AmistOsa_northness30 <- sin(AmistOsa_slope30) * cos(AmistOsa_aspect30)
+#writeRaster(AmistOsa_northness30, filename='Data/spatial/SRTM/AmistOsa_northness30.tif')
+plot(AmistOsa_northness30, main='Northness 30m DEM')
+hist(AmistOsa_northness30, main='Northness')
 
 ## Biomass
 plot(biomass)
