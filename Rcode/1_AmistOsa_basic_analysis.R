@@ -1,6 +1,6 @@
 ####################### AmistOsa landscape case study #############################
 # Date: 9-25-23
-# updated: 10-4-23
+# updated: 10-6-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -32,10 +32,10 @@ focal_pa$ISO3 <- ifelse(focal_pa$ISO3=='CRI;PAN', 'CRI', focal_pa$ISO3) #one PA 
 AmistOsa_DEM <- terra::rast("Data/spatial/SRTM/SRTM_90m_31971_AmistOsa.tif")
 #plot(AmistOsa_DEM)
 
-srtm_30m <- terra::rast("Data/spatial/SRTM/output_SRTMGL1.tif")
-srtm_30m_proj <- terra::project(srtm_30m, "EPSG:31971", 
-                                 method='average', res=c(30,30))
-srtm_30m_proj_mask <- terra::crop(srtm_30m_proj, AmistOsa, mask=T)
+# srtm_30m <- terra::rast("Data/spatial/SRTM/output_SRTMGL1.tif")
+# srtm_30m_proj <- terra::project(srtm_30m, "EPSG:31971", 
+#                                  method='average', res=c(30,30))
+# srtm_30m_proj_mask <- terra::crop(srtm_30m_proj, AmistOsa, mask=T)
 #terra::writeRaster(srtm_30m_proj_mask, filename='Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif', overwrite=T)
 AmistOsa_DEM30 <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
 
@@ -58,6 +58,16 @@ biomass <- terra::rast("Data/spatial/biomass/biomass_300m_31971_AmistOsa.tif")
 # AmistOsa_lulc_table <- freq(AmistOsa_lulc)
 # terra::writeRaster(AmistOsa_lulc_31971, filename='Data/spatial/LULC/AmistOsa_lulc_ESACCI_global10m.tif', overwrite=T)
 AmistOsa_lulc <- terra::rast('Data/spatial/LULC/AmistOsa_lulc_ESACCI_global10m.tif')
+
+#### Global Landscape Forest Integrity Index ####
+# Downloaded 10-6-23 (https://www.forestintegrity.com/)
+# GLFII <- terra::rast("C:/Users/immcc/Documents/climate_corridor_data_analysis/paper_data/GLFII/flii_NorthAmerica.tif")
+# 
+# GLFII_proj <- terra::project(GLFII, "EPSG:31971",
+#                         method='average', res=c(300,300))
+# GLFII_proj_mask <- terra::crop(GLFII_proj, AmistOsa, mask=T)
+# writeRaster(GLFII_proj_mask, filename='Data/spatial/GLFII/GLFII_AmistOsa.tif')
+GLFII <- terra::rast("Data/spatial/GLFII/GLFII_AmistOsa.tif")
 
 #### Main program ####
 
@@ -159,3 +169,42 @@ AmistOsa_lulc_table$prop <- AmistOsa_lulc_table$Area/AmistOsa_landscape_totalare
 
 pie(AmistOsa_lulc_table$prop, col=rainbow(nrow(AmistOsa_lulc_table)),
     main="AmistOsa LULC")
+
+## GLFII
+hist(GLFII)
+summary(GLFII)
+
+m <- c(9600,9999,1)  #with Yana's
+rclmat <- matrix(m, ncol=3, byrow=T)
+GLFII_high <- terra::classify(GLFII, rclmat, include.lowest=T, others=NA)
+plot(GLFII_high, main='AmistOsa high forest integrity')
+plot(AmistOsa, add=T)
+
+m <- c(6000,9600,2)  #with Yana's
+rclmat <- matrix(m, ncol=3, byrow=T)
+GLFII_medium <- terra::classify(GLFII, rclmat, include.lowest=F, others=NA)
+plot(GLFII_medium, main='AmistOsa medium forest integrity', col='khaki')
+plot(AmistOsa, add=T)
+
+m <- c(0,6000,3)  #with Yana's
+rclmat <- matrix(m, ncol=3, byrow=T)
+GLFII_low <- terra::classify(GLFII, rclmat, include.lowest=F, right=F, others=NA)
+plot(GLFII_low, main='AmistOsa low forest integrity', col='gray')
+plot(AmistOsa, add=T)
+
+test <- terra::mosaic(GLFII_high, GLFII_medium, GLFII_low, fun='max')
+plot(test, legend=T)
+plot(AmistOsa, add=T, lwd=2)
+#writeRaster(test, filename='Data/spatial/GLFII/GLFII_AmistOsa_HiMedLow.tif')
+
+GLFII_AmistOsa_prop <- as.data.frame(freq(test))
+GLFII_AmistOsa_prop$prop <- GLFII_AmistOsa_prop$count/sum(GLFII_AmistOsa_prop$count)
+
+
+# put em all together manually piece by piece
+plot(GLFII_high, col='forestgreen', legend=F)
+plot(GLFII_medium, col='gold', add=T, legend=F)
+plot(GLFII_low, col='gray', add=T, legend=F)
+plot(AmistOsa, add=T, lwd=2)
+# this legend doesn't work
+#legend('topright', legend=c('High','Med','Low'), pch=c(15,15,15), col=c('forestgreen','gold','gray'))
