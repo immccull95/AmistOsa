@@ -1,6 +1,6 @@
 ################## AmistOsa landscape structure analysis ##########################
 # Date: 9-26-23
-# updated: 10-9-23; testing landscapemetrics
+# updated: 10-12-23; integrating roads and rivers
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -25,14 +25,90 @@ AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 
 AmistOsa_lulc_Yana_rast <- terra::rast('Data/spatial/LULC/AmistOsa_lulc_Yana_rast.tif') 
 
+# Roads and rivers
+roads <- terra::vect("Data/spatial/Redcamino2014crtm05/AmistOsa_roads_31971.shp")
+rivers <- terra::vect("Data/spatial/CR_rivers/AmistOsa_rivers_31971.shp")
+
 #### Main program ####
-## Aggregate different LULC classes into patches by class type
-# Can use terra::patches, but this only works on one class at a time
-# seems perfectly fine, however, if only doing this for forest (value=10)
+# frequencies of LULC types across landscape
 AmistOsa_LULC_pct <- as.data.frame(freq(AmistOsa_lulc_Yana_rast))
 AmistOsa_LULC_pct$areasqkm <- (AmistOsa_LULC_pct$count*100)/1000000 
 AmistOsa_LULC_pct$prop <- AmistOsa_LULC_pct$areasqkm/(sum(AmistOsa_LULC_pct$areasqkm))
 
+# Integrate roads and rivers into LULC map
+unique(roads$TIPO)
+unique(roads$RUTA)
+
+# separate roads by type for different buffer widths
+primaria <- subset(roads, roads$TIPO=='PRIMARIA')
+secundaria <- subset(roads, roads$TIPO=='SECUNDARIA')
+terciaria <- subset(roads, roads$TIPO=='TERCIARIA')
+sendero <- subset(roads, roads$TIPO=='SENDERO')
+vecinal <- subset(roads, roads$TIPO=='VECINAL') #vast majority of features
+
+plot(AmistOsa, lwd=2)
+plot(vecinal, add=T, col='khaki')
+plot(primaria, add=T, col='red', lwd=2)
+plot(secundaria, add=T, col='gold', lwd=1.5)
+plot(terciaria, add=T, col='gray30', lwd=1)
+plot(sendero, add=T, col='purple', lwd=1)
+
+# for now, try some arbitrary example buffer widths
+primaria_buffered <- terra::buffer(primaria, width=500) #meters
+secundaria_buffered <- terra::buffer(secundaria, width=250)
+
+other_roads <- subset(roads, roads$TIPO %in% c('TERCIARIA','SENDERO','VECINAL'))
+other_roads_buffered <- terra::buffer(other_roads, width=100)
+
+all_roads_buffered <- terra::union(primaria_buffered, secundaria_buffered)
+all_roads_buffered <- terra::union(all_roads_buffered, other_roads_buffered)
+
+plot(AmistOsa)
+plot(all_roads_buffered, add=T, col='red')
+
+roads_buffered_rast <- terra::rasterize(all_roads_buffered, AmistOsa_lulc_Yana_rast, field='TIPO', background=NA)
+roadm <- c(0,5,99) #may be different values (should check), using 99 as a ridiculous value for now
+rclmat <- matrix(roadm, ncol=3, byrow=T)
+
+roads_buffered_rastRK <- terra::classify(roads_buffered_rast, rclmat, include.lowest=T, others=NA)
+plot(roads_buffered_rastRK)
+
+mosaic_test <- terra::mosaic(AmistOsa_lulc_Yana_rast, roads_buffered_rastRK, fun='max')
+plot(mosaic_test)
+#writeRaster(mosaic_test, filename='Data/spatial/tump/mosaic_test.tif', overwrite=T)# export to inspect in QGIS
+
+# test effects on patch aggregation
+
+m <- c(5,5,1)  #with Yana's
+rclmat <- matrix(m, ncol=3, byrow=T)
+AmistOsa_forest <- terra::classify(mosaic_test, rclmat, include.lowest=T, others=NA)
+plot(AmistOsa_forest)
+
+AmistOsa_forest_patches <- terra::patches(AmistOsa_forest, directions=8, filename='Data/spatial/tump/AmistOsa_forest_patches_test.tif')
+plot(AmistOsa_forest_patches)
+
+test_num_patches <- lsm_l_np(AmistOsa_forest, directions=8)
+test_patch_area <- lsm_p_area(AmistOsa_forest, directions=8)
+summary(test_patch_area)
+hist((test_patch_area$value/100), main='Forest patch area')
+
+test_patch_core <- lsm_p_core(AmistOsa_forest, directions=8, edge_depth=1)
+test_patch_core$areasqkm <- test_patch_core$value/100
+summary(test_patch_core$areasqkm)
+hist(test_patch_core$areasqkm, main='Core forest area', breaks=seq(0,1000,10))
+
+test_patch_cai <- lsm_p_cai(AmistOsa_forest, directions=8, edge_depth=1)
+test_patch_cai$edge <- (100-test_patch_cai$value)
+summary(test_patch_cai)
+hist(test_patch_cai$value, main='Percent core forest')
+hist(test_patch_cai$edge, main='Percent edge')
+
+# how much does the biggest patch matter?
+max(test_patch_area$value)/sum(test_patch_area$value)
+
+## Aggregate different LULC classes into patches by class type
+# Can use terra::patches, but this only works on one class at a time
+# seems perfectly fine, however, if only doing this for forest (value=10)
 # m <- c(0,10,1,
 #        11,95,NA) #old LULC
 m <- c(5,5,1)  #with Yana's
@@ -121,7 +197,7 @@ summary(forest_patch_cai)
 
 # map core area (seems slower than other functions)
 #crashed
-#show_cores(AmistOsa_forest, directions=8, class='all', labels=F)
+#show_cores(AmistOsa_forest, directions=8, class='global', labels=F)
 
 # forest patch cohesion index
 forest_patch_cohesion <- lsm_l_cohesion(AmistOsa_forest, directions=8)
@@ -143,10 +219,38 @@ hist(forest_nn_patch_summary$dist, main='Distance to nearest neighbor', xlab='km
      xlim=c(0,1000), breaks=seq(0,1000,10))
 
 
+## Eventually, we will need to integrate roads and rivers, which increase fragmentation
+roadtest <- terra::vect("Data/spatial/tump/RoadTest.shp")
+roadtest_buffer <- terra::buffer(roadtest, width=100)#somewhat arbitrary buffer width for now
 
+plot(AmistOsa)
+plot(roadtest_buffer, add=T, col='red')
+
+roadtest_buffer_rast <- terra::rasterize(roadtest_buffer, AmistOsa_lulc_Yana_rast, field='id', background=NA)
+roadm <- c(1,2,99) #may be different id values, using 99 as a ridiculous value for now
+rclmat <- matrix(roadm, ncol=3, byrow=T)
+
+AmistOsa_roads <- terra::classify(roadtest_buffer_rast, rclmat, include.lowest=T, others=NA)
+plot(AmistOsa_roads)
+
+mosaic_test <- terra::mosaic(AmistOsa_lulc_Yana_rast, AmistOsa_roads, fun='max')
+plot(mosaic_test)
+#writeRaster(mosaic_test, filename='Data/spatial/tump/mosaic_test.tif')# export to inspect in QGIS
+
+# how does this affect patch aggregation? caution: slow, but seems bit faster with roads cutting up patches
+m <- c(5,5,1)  #with Yana's
+rclmat <- matrix(m, ncol=3, byrow=T)
+AmistOsa_forest_roadtest <- terra::classify(mosaic_test, rclmat, include.lowest=T, others=NA)
+plot(AmistOsa_forest)
+plot(AmistOsa_forest_roadtest)
+forest_patches_roadtest <- terra::patches(AmistOsa_forest_roadtest, directions=8, filename='Data/spatial/tump/AmistOsa_forest_patches_roadtest.tif')
+plot(forest_patches_roadtest)
+
+# can also try with "rook's" case
+forest_patch_roadtestROOK <- terra::patches(AmistOsa_forest_roadtest, directions=4, filename='Data/spatial/tump/AmistOsa_forest_patches_roadtestROOK.tif')
 
 # Can also use landscapemetrics::get_patches, which works across different classes
-# seems better, more flexible (e.g., option to do just one class)
+# seems better, more flexible (e.g., option to do just one class, but doesn't matter if we are only using one class (forest) anyway)
 # but quite possible to run into memory problems; can try to_disk argument
 # AmistOsa_patches <- landscapemetrics::get_patches(AmistOsa_lulc, class=40, directions=8, return_raster=T, to_disk=T)
 # AmistOsa_ag <- AmistOsa_patches[[1]]$class_40
