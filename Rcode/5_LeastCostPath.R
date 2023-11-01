@@ -1,6 +1,6 @@
 ######################## AmistOsa least cost paths ################################
 # Date: 10-30-23
-# updated: 
+# updated: 11-1-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -94,6 +94,10 @@ for (i in 1:nrow(start_points)){
   filename_csv = NULL
   csv = NULL
 }
+
+# convert conductance matrix to spatraster to visualize
+# cost_rast <- leastcostpath::rasterise(condmat) #pretty quick
+# plot(cost_rast)
 
 # test_lcp <- create_lcp(test_cs, origin=start_points, destination=end_points, cost_distance=T)
 # 

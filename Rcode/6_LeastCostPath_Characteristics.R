@@ -25,6 +25,7 @@ golfo_dulce <- terra::vect("Data/spatial/LeastCostPaths/Golfo_Dulce_Start_4.shp"
 golfito <- terra::vect("Data/spatial/LeastCostPaths/Golfito_Start_5.shp")
 osa <- terra::vect("Data/spatial/LeastCostPaths/Osa_Start_6.shp")
 pejeperro <- terra::vect("Data/spatial/LeastCostPaths/Pejeperro_Start_7.shp")
+terraba_sierpe2 <- terra::vect("Data/spatial/LeastCostPaths/Terraba-Sierpe_Start_8.shp")
 
 # LULC
 LULC <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_Yana_noUNCL_wRoads.tif")
@@ -48,6 +49,7 @@ plot(golfo_dulce, add=T, col='gold')
 plot(golfito, add=T, col='gray')
 plot(osa, add=T, col='purple')
 plot(pejeperro, add=T, col='dodgerblue')
+plot(terraba_sierpe2, add=T, col='beige')
 
 # keep only lowest cost path(s) per origin
 npaths <- 3 #number of paths to keep
@@ -100,6 +102,13 @@ pejeperro_LCP <- pejeperro_LCP[c(1:npaths),]
 pejeperro_LCP <- pejeperro_LCP$ID
 pejeperro_LCP <- subset(pejeperro, pejeperro$ID %in% pejeperro_LCP)
 
+terraba_sierpe2$ID <- seq(1,nrow(terraba_sierpe2),1)
+terraba_sierpe2$Start <- 'TerrabaSierpe2'
+terraba_sierpe2_LCP <- as.data.frame(terraba_sierpe2) %>% group_by(cost) %>% slice(1:npaths)
+terraba_sierpe2_LCP <- terraba_sierpe2_LCP[c(1:npaths),]
+terraba_sierpe2_LCP <- terraba_sierpe2_LCP$ID
+terraba_sierpe2_LCP <- subset(terraba_sierpe2, terraba_sierpe2$ID %in% terraba_sierpe2_LCP)
+
 
 plot(AmistOsa)
 plot(corcovado_LCP, add=T, col='red')
@@ -109,6 +118,7 @@ plot(golfo_dulce_LCP, add=T, col='gold')
 plot(golfito_LCP, add=T, col='gray')
 plot(osa_LCP, add=T, col='purple')
 plot(pejeperro_LCP, add=T, col='dodgerblue')
+plot(terraba_sierpe1_LCP, add=T, col='beige')
 
 ## Buffer LCPs
 buff_dist <- 1000 #meters
@@ -140,7 +150,11 @@ osa_LCP_buff <- terra::vect(osa_LCP_sf_buff)
 
 pejeperro_LCP_sf <- sf::st_as_sf(pejeperro_LCP)
 pejeperro_LCP_sf_buff <- st_buffer(pejeperro_LCP_sf, dist=buff_dist)
-pejeperro_LCP_buff <- terra::vect(pejeperro_LCP_sf_buff)
+pejeperro_LCP_buff <- terra::vect
+
+terraba_sierpe2_LCP_sf <- sf::st_as_sf(terraba_sierpe2_LCP)
+terraba_sierpe2_LCP_sf_buff <- st_buffer(terraba_sierpe2_LCP_sf, dist=buff_dist)
+terraba_sierpe2_LCP_buff <- terra::vect(terraba_sierpe2_LCP_sf_buff)
 
 plot(AmistOsa)
 plot(corcovado_LCP_buff, add=T, col='red')
@@ -150,6 +164,11 @@ plot(golfo_dulce_LCP_buff, add=T, col='gold')
 plot(golfito_LCP_buff, add=T, col='gray')
 plot(osa_LCP_buff, add=T, col='purple')
 plot(pejeperro_LCP_buff, add=T, col='dodgerblue')
+plot(terraba_sierpe2_LCP_buff, add=T, col='beige')
+
+# LCP density?
+test_density <- create_lcp_density(LULC, corcovado)
+
 
 # ends up with many more geometries than started with and creates slivers without attributes
 test <- terra::union(corcovado_LCP_buff, piedras_blancas_LCP_buff)
