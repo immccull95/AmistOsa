@@ -24,7 +24,7 @@ terraba_sierpe1 <- terra::vect("Data/spatial/LeastCostPaths/Terraba-Sierpe_Start
 golfo_dulce <- terra::vect("Data/spatial/LeastCostPaths/Golfo_Dulce_Start_4.shp")
 golfito <- terra::vect("Data/spatial/LeastCostPaths/Golfito_Start_5.shp")
 osa <- terra::vect("Data/spatial/LeastCostPaths/Osa_Start_6.shp")
-
+pejeperro <- terra::vect("Data/spatial/LeastCostPaths/Pejeperro_Start_7.shp")
 
 # LULC
 LULC <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_Yana_noUNCL_wRoads.tif")
@@ -47,6 +47,7 @@ plot(terraba_sierpe1, add=T, col='green')
 plot(golfo_dulce, add=T, col='gold')
 plot(golfito, add=T, col='gray')
 plot(osa, add=T, col='purple')
+plot(pejeperro, add=T, col='dodgerblue')
 
 # keep only lowest cost path(s) per origin
 npaths <- 3 #number of paths to keep
@@ -92,6 +93,14 @@ osa_LCP <- osa_LCP[c(1:npaths),]
 osa_LCP <- osa_LCP$ID
 osa_LCP <- subset(osa, osa$ID %in% osa_LCP)
 
+pejeperro$ID <- seq(1,nrow(pejeperro),1)
+pejeperro$Start <- 'pejeperro'
+pejeperro_LCP <- as.data.frame(pejeperro) %>% group_by(cost) %>% slice(1:npaths)
+pejeperro_LCP <- pejeperro_LCP[c(1:npaths),]
+pejeperro_LCP <- pejeperro_LCP$ID
+pejeperro_LCP <- subset(pejeperro, pejeperro$ID %in% pejeperro_LCP)
+
+
 plot(AmistOsa)
 plot(corcovado_LCP, add=T, col='red')
 plot(piedras_blancas_LCP, add=T, col='blue')
@@ -99,6 +108,7 @@ plot(terraba_sierpe1_LCP, add=T, col='green')
 plot(golfo_dulce_LCP, add=T, col='gold')
 plot(golfito_LCP, add=T, col='gray')
 plot(osa_LCP, add=T, col='purple')
+plot(pejeperro_LCP, add=T, col='dodgerblue')
 
 ## Buffer LCPs
 buff_dist <- 1000 #meters
@@ -128,6 +138,10 @@ osa_LCP_sf <- sf::st_as_sf(osa_LCP)
 osa_LCP_sf_buff <- st_buffer(osa_LCP_sf, dist=buff_dist)
 osa_LCP_buff <- terra::vect(osa_LCP_sf_buff)
 
+pejeperro_LCP_sf <- sf::st_as_sf(pejeperro_LCP)
+pejeperro_LCP_sf_buff <- st_buffer(pejeperro_LCP_sf, dist=buff_dist)
+pejeperro_LCP_buff <- terra::vect(pejeperro_LCP_sf_buff)
+
 plot(AmistOsa)
 plot(corcovado_LCP_buff, add=T, col='red')
 plot(piedras_blancas_LCP_buff, add=T, col='blue')
@@ -135,6 +149,7 @@ plot(terraba_sierpe1_LCP_buff, add=T, col='green')
 plot(golfo_dulce_LCP_buff, add=T, col='gold')
 plot(golfito_LCP_buff, add=T, col='gray')
 plot(osa_LCP_buff, add=T, col='purple')
+plot(pejeperro_LCP_buff, add=T, col='dodgerblue')
 
 # ends up with many more geometries than started with and creates slivers without attributes
 test <- terra::union(corcovado_LCP_buff, piedras_blancas_LCP_buff)
