@@ -40,7 +40,7 @@ roads <- terra::vect("Data/spatial/Redcamino2014crtm05/AmistOsa_roads_31971.shp"
 # Forest biomass
 biomass <- terra::rast("Data/spatial/biomass/biomass_300m_31971_AmistOsa.tif")
 
-# DEM and slope
+# Terrain
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
 slope <- terra::rast("Data/spatial/SRTM/AmistOsa_slope30.tif")
 
@@ -263,8 +263,8 @@ colnames(LCP_slope) <- c('slope_mean','slope_min','slope_max')
 LCP_slope$slope_range <- LCP_slope$slope_max - LCP_slope$slope_min
 LCP_slope$LCP_ID <- merged_LCPs_buff$LCP_ID
 summary(LCP_slope)
-hist(LCP_slope$slope_mean, main='LCP mean slope', xlab='slope (m)')
-hist(LCP_slope$slope_range, main='LCP slope range', xlab='slope (m)')
+hist(LCP_slope$slope_mean, main='LCP mean slope', xlab='slope (deg)')
+hist(LCP_slope$slope_range, main='LCP slope range', xlab='slope (deg)')
 
 ## LCP protection
 LCP_protection <- terra::intersect(merged_LCPs_buff, protected_areas)
