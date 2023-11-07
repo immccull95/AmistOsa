@@ -1,6 +1,6 @@
 ################## AmistOsa landscape structure analysis ##########################
 # Date: 9-26-23
-# updated: 10-18-23; LULC pie chart
+# updated: 11-6-23; cv stats
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -246,6 +246,8 @@ hist(forest_patch_area$areasqkm, xlab='sq km', main='AmistOsa forest patch size 
 forest_patch_area_cv <- lsm_l_area_cv(AmistOsa_forest, directions=8)
 forest_patch_area_cv$value/100 #into sq meters
 
+nrow(subset(forest_patch_area, areasqkm >= 100))
+
 # if take out largest patch
 # forest_patch_area_others <- subset(forest_patch_area, id>1)
 # summary(forest_patch_area_others)
@@ -308,6 +310,9 @@ mtext('Edge depth = 10 pixels', side=3)
 summary(forest_patch_cai)
 #write.csv(forest_patch_cai, file='Data/spatial/LandscapeStructure/forest_patch_cai.csv', row.names=F)
 
+(sd(forest_patch_cai$value, na.rm=T)/mean(forest_patch_cai$value, na.rm=T))*100
+
+
 # edge and patch density
 edge_density <- lsm_l_ed(AmistOsa_forest, directions=8)
 patch_density <- lsm_l_pd(AmistOsa_forest, directions=8)# output is per 100 ha, so per sq km
@@ -318,6 +323,8 @@ summary(forest_patch_shape_index)
 hist(forest_patch_shape_index$value, main='Shape index', 
      xlim=c(0,40), breaks=seq(0,40,1), xlab='Shape index')
 #write.csv(forest_patch_shape_index, file='Data/spatial/LandscapeStructure/forest_patch_shape_index.csv', row.names=F)
+
+(sd(forest_patch_shape_index$value, na.rm=T)/mean(forest_patch_shape_index$value, na.rm=T))*100
 
 ## coarse connectivity metrics
 # nearest neighbor patch distance (pretty slow compared to other functions)
@@ -332,6 +339,8 @@ forest_nn_patch_summary <- forest_nn_patch %>%
 summary(forest_nn_patch_summary)
 hist(forest_nn_patch_summary$dist, main='Distance to nearest neighbor', xlab='m',
      xlim=c(0,1000), breaks=seq(0,1000,10))
+
+(sd(forest_nn_patch_summary$dist, na.rm=T)/mean(forest_nn_patch_summary$dist))*100
 
 # forest patch cohesion index (expressed as percent; higher=more cohesive landscape)
 forest_patch_cohesion <- lsm_l_cohesion(AmistOsa_forest, directions=8)
