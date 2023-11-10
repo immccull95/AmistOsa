@@ -1,6 +1,6 @@
 ################# Set up for Circuitscape in Julia ################################
 # Date: 10-26-23
-# updated: 
+# updated: 11-8-23
 # Author: Ian McCullough, immccull@gmail.com, Chris Beirne (chrisbeirne@osaconservation.org)
 ###################################################################################
 
@@ -27,11 +27,14 @@ AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 
 # Conductance surface (lc: land cover)
 lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif")
+#lc_20 <- terra::aggregate(lc, fact=2)
 
 # All start and end polygons
 start_all <- vect("Data/spatial/nodes/start_nodes_AmistOsa.shp")
 end_all <- vect("Data/spatial/nodes/LaAmistad.shp")
-end_nodes <- vect("Data/spatial/nodes/end_nodes_AmistOsa.shp")
+#end_nodes <- vect("Data/spatial/nodes/end_nodes_AmistOsa.shp")
+#end_nodes <- vect("Data/spatial/nodes/end_nodes_LaAmistad_10km.shp")
+end_nodes1km <- vect("Data/spatial/nodes/end_nodes_LaAmistad_1km.shp")
 
 plot(lc)
 plot(start_all, add=T, col='forestgreen')
@@ -85,13 +88,12 @@ plot(start_points, add=T, col='orange')
 #start_v_wgs <- project(start_v, lc)
 
 
-
-
 # Make an AOI layer
 aoi <- ext(lc) 
 
 # Turn all the end polygons into a raster, use the LC layer as a template to match resolutions
 end_ras <- rasterize(end_all,lc, field=999)
+#end_ras <- rasterize(end_all, lc_20, field=999)
 # Create a polygon version of this new layer and plot it to check it looks sensible
 polygons <- end_ras
 plot(AmistOsa)
@@ -110,18 +112,23 @@ plot(polygons, add=T) # You should see La Amistad top right
 # Create the source layer - rasterize them as before
 #sources <- rasterize(start_p,lc) # note leaving the field blank makes all of the values 1 
 sources <- rasterize(start_points, lc)
+#sources <- rasterize(start_points, lc_20)
 
 # So now we have 999 for end nodes, and 1 for start nodes
 
-# We need end nodes within the end polygons -> the extent of the poulygon will take this value
+# We need end nodes within the end polygons -> the extent of the polygon will take this value
 # Create end layer
 end_v <- crop(end_all, aoi)
-end_p <- centroids(end_v, inside=T)
+#end_p <- centroids(end_v, inside=T)
+#end_p <- terra::intersect(end_nodes, AmistOsa)
+end_p <- terra::intersect(end_nodes1km, AmistOsa)
 # These are our "grounds" where the current will travel to
 # Perhaps this is something we change; basically it is just one dot
 grounds <- rasterize(end_p,lc, 
                      field=1) # make the area the current
-
+#grounds <- rasterize(end_p,lc_20, 
+#                     field=1) # make the area the current
+#
 # Convert to raster format
 #lc    <- as(lc,"Raster")
 
@@ -130,15 +137,22 @@ dir.create("julia/")
 
 # Resistance surface
 writeRaster(lc, "julia/cellmap.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
+#writeRaster(lc_20, "julia/cellmap20.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
 
 # Sources
 writeRaster(sources, "julia/sources.asc",  overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
+#writeRaster(sources, "julia/sources20.asc",  overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
 
-# Ground
+# Grounds
 writeRaster(grounds, "julia/grounds.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
+#writeRaster(grounds, "julia/grounds20.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
+#writeRaster(grounds, "julia/grounds20_14.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
+#writeRaster(grounds, "julia/grounds20_139.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
+
 
 # Polygon
 writeRaster(polygons, "julia/regions_grid.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
+#writeRaster(polygons, "julia/regions_grid20.asc", overwrite=TRUE, gdal="DECIMAL_PRECISION=0", NAflag=-9999)
 
 dir.create("julia/output")
 
@@ -151,14 +165,20 @@ dir.create("julia/output")
 ############################################
 # Import and explore the output
 
-example_cur <- rast("C:/Users/immccull/Documents/Circuitscape_tutorial/julia/output/osa_example_curmap.asc")
-res_cur <- rast("julia/output/osa_example_curmap.asc")
+#example_cur <- rast("C:/Users/immccull/Documents/Circuitscape_tutorial/julia/output/osa_example_curmap.asc")
+#res_cur <- rast("julia/output/osa_example_curmap.asc")
+#res_cur <- rast("julia/output/osa_example_8dir_20m_curmap.asc")
+#res_cur_14 <- rast("julia/output/osa_example_8dir_20m_14_curmap.asc")
+#plot(example_cur)
 
-plot(example_cur)
+res_cur <- rast("julia/output/osa_8dir_cgamg_curmap.asc")
 
 res_cur_mask <- terra::mask(res_cur, AmistOsa, inverse=F)
+#res_cur_mask2 <- terra::mask(res_cur_14, AmistOsa, inverse=F)
 plot(res_cur_mask)
 plot(end_v, add=T, col='forestgreen')
+
+#plot(res_cur_mask2)
 
 summary(res_cur_mask)
 hist(res_cur_mask, main='Current', xlab='Current')
@@ -166,13 +186,16 @@ hist(res_cur_mask, main='Current', xlab='Current')
 end_sf <- sf::st_as_sf(end_v)
 
 # Clamp the voltage to make it meaningful 
-res_clamp <- clamp(res_cur, upper=15)
+#res_clamp <- clamp(res_cur, upper=15)
+res_clamp <- clamp(res_cur, lower=0.5)
+plot(res_clamp)
+plot(AmistOsa, add=T)
 
 # Convert the landcover map
 # mask out the low voltage areas (ocean)
 res_clamp <- app(res_clamp, fun=function(x){ x[x < 0.1] <- NA; return(x)} )
 
-# Add in protect areas (cropped to the area)
+# Add in protected areas (cropped to the area)
 tmp <- crop(start_all, aoi)
 start_sf <- sf::st_as_sf(tmp)
 
