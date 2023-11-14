@@ -215,6 +215,9 @@ plot(LULC_1000)
 # terraba_sierpe2_density <- create_lcp_density(LULC_1000, terraba_sierpe2)
 
 top5_LCP_density <- create_lcp_density(LULC_1000, top5_LCP)
+plot(top5_LCP_density, main='Least cost path density')
+#mtext(side=3, "corridors/sq km")
+hist(top5_LCP_density)
 
 # par(mfrow=c(2,4))
 # plot(corcovado_density, main='Corcovado')
@@ -551,15 +554,15 @@ LCP_export$LCP_length_km <- LCP_length_km
 double <- LCP_export
 double$Start <- 'All'
 
-LCP_export <- rbind.data.frame(LCP_export, double)
-LCP_export$Start <- factor(LCP_export$Start, levels=c('Corcovado','Golfito','GD','Osa','Pejeperro','PB','TS1','TS2','All'))
+LCP_export_double <- rbind.data.frame(LCP_export, double)
+LCP_export_double$Start <- factor(LCP_export_double$Start, levels=c('Corcovado','GD', 'Golfito','Osa','PB','Pejeperro','TS1','TS2','All'))
 
 # create visual of LCP characteristics
 site_names <- c('COR', 'GD','GOL','OSA','PB',
                 'PEJ','TSW','TSE','All')
 plot_colors <- c('forestgreen','dodgerblue','orange','gold','salmon','purple','lightgreen','tan','gray')
 
-cost_plot <-ggplot(LCP_export, aes(x=Start, y=Cost, fill=Start)) +
+cost_plot <-ggplot(LCP_export_double, aes(x=Start, y=Cost, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -571,7 +574,7 @@ cost_plot <-ggplot(LCP_export, aes(x=Start, y=Cost, fill=Start)) +
   ggtitle('A) Accumulated cost')
 cost_plot
 
-length_plot <-ggplot(LCP_export, aes(x=Start, y=LCP_length_km, fill=Start)) +
+length_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_length_km, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -583,7 +586,7 @@ length_plot <-ggplot(LCP_export, aes(x=Start, y=LCP_length_km, fill=Start)) +
   ggtitle('B) Distance')
 length_plot
 
-biomass_plot <-ggplot(LCP_export, aes(x=Start, y=Biomass_mean, fill=Start)) +
+biomass_plot <-ggplot(LCP_export_double, aes(x=Start, y=Biomass_mean, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -596,7 +599,7 @@ biomass_plot <-ggplot(LCP_export, aes(x=Start, y=Biomass_mean, fill=Start)) +
 biomass_plot
 
 # note trimmed axis removed one large data point
-elevation_plot <-ggplot(LCP_export, aes(x=Start, y=elevation_range, fill=Start)) +
+elevation_plot <-ggplot(LCP_export_double, aes(x=Start, y=elevation_range, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -608,7 +611,7 @@ elevation_plot <-ggplot(LCP_export, aes(x=Start, y=elevation_range, fill=Start))
   ggtitle('C) Elevation')
 elevation_plot
 
-slope_plot <-ggplot(LCP_export, aes(x=Start, y=slope_mean, fill=Start)) +
+slope_plot <-ggplot(LCP_export_double, aes(x=Start, y=slope_mean, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -620,7 +623,7 @@ slope_plot <-ggplot(LCP_export, aes(x=Start, y=slope_mean, fill=Start)) +
   ggtitle('Slope')
 slope_plot
 
-nPA_plot <-ggplot(LCP_export, aes(x=Start, y=nPA, fill=Start)) +
+nPA_plot <-ggplot(LCP_export_double, aes(x=Start, y=nPA, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -632,7 +635,7 @@ nPA_plot <-ggplot(LCP_export, aes(x=Start, y=nPA, fill=Start)) +
   ggtitle('Number of protected areas')
 nPA_plot
 
-pct_protected_plot <-ggplot(LCP_export, aes(x=Start, y=pct_protected, fill=Start)) +
+pct_protected_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_protected, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -644,7 +647,7 @@ pct_protected_plot <-ggplot(LCP_export, aes(x=Start, y=pct_protected, fill=Start
   ggtitle('D) Protection')
 pct_protected_plot
 
-roads_plot <-ggplot(LCP_export, aes(x=Start, y=nTotalRoads, fill=Start)) +
+roads_plot <-ggplot(LCP_export_double, aes(x=Start, y=nTotalRoads, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -656,7 +659,7 @@ roads_plot <-ggplot(LCP_export, aes(x=Start, y=nTotalRoads, fill=Start)) +
   ggtitle('E) Road crossings')
 roads_plot
 
-forest_patches_plot <-ggplot(LCP_export, aes(x=Start, y=nForestPatches, fill=Start)) +
+forest_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nForestPatches, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -668,7 +671,7 @@ forest_patches_plot <-ggplot(LCP_export, aes(x=Start, y=nForestPatches, fill=Sta
   ggtitle('F) Forest patch crossings')
 forest_patches_plot
 
-forest_pct_plot <-ggplot(LCP_export, aes(x=Start, y=pct_forest, fill=Start)) +
+forest_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_forest, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -680,7 +683,7 @@ forest_pct_plot <-ggplot(LCP_export, aes(x=Start, y=pct_forest, fill=Start)) +
   ggtitle('G) Forest cover')
 forest_pct_plot
 
-ag_pct_plot <-ggplot(LCP_export, aes(x=Start, y=pct_ag, fill=Start)) +
+ag_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_ag, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -692,7 +695,7 @@ ag_pct_plot <-ggplot(LCP_export, aes(x=Start, y=pct_ag, fill=Start)) +
   ggtitle('H) Agriculture cover')
 ag_pct_plot
 
-pct_unique_plot <-ggplot(LCP_export, aes(x=Start, y=LCP_pct_unique, fill=Start)) +
+pct_unique_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_pct_unique, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -704,7 +707,7 @@ pct_unique_plot <-ggplot(LCP_export, aes(x=Start, y=LCP_pct_unique, fill=Start))
   ggtitle('Uniqueness')
 pct_unique_plot
 
-LCP_density_plot <-ggplot(LCP_export, aes(x=Start, y=LCP_density_range, fill=Start)) +
+LCP_density_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_density_range, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
@@ -716,7 +719,7 @@ LCP_density_plot <-ggplot(LCP_export, aes(x=Start, y=LCP_density_range, fill=Sta
   ggtitle('Corridor density (mean)')
 LCP_density_plot
 
-# LCP_density_plot2 <-ggplot(LCP_export, aes(x=Start, y=LCP_density_mean, fill=Start)) +
+# LCP_density_plot2 <-ggplot(LCP_export_double, aes(x=Start, y=LCP_density_mean, fill=Start)) +
 #   geom_boxplot()+
 #   theme_classic()+
 #   theme(axis.text.x=element_text(color='black', size=8),
@@ -728,7 +731,7 @@ LCP_density_plot
 #   ggtitle('N) Corridor density (range)')
 # LCP_density_plot2
 
-LCP_intersection_plot <-ggplot(LCP_export, aes(x=Start, y=nIntersectingCorridors, fill=Start)) +
+LCP_intersection_plot <-ggplot(LCP_export_double, aes(x=Start, y=nIntersectingCorridors, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8),
