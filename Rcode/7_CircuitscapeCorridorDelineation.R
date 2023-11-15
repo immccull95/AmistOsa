@@ -1,6 +1,6 @@
 ################## Identifying corridors from Circuitscape output #################
 # Date: 11-7-23
-# updated: 11-8-23
+# updated: 11-15-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -15,8 +15,9 @@ setwd("C:/Users/immccull/Documents/AmistOsa")
 AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa.shp")
 AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 
-# this is the 20m res output using cg+amg solver and the 139 end points
+# this is the 10m res output using cg+amg solver and the 139 end points
 circuit_test <- terra::rast("julia/output/osa_8dir_cgamg_curmap.asc")
+
 
 #### Main program ####
 circuit_test_mask <- terra::mask(circuit_test, AmistOsa, inverse=F)
@@ -43,6 +44,7 @@ circuit_test_RK <- terra::classify(circuit_test_clamp, rkmat, include.lowest=F)
 
 plot(AmistOsa)
 plot(circuit_test_RK, add=T)
+#writeRaster(circuit_test_RK, filename='julia/output/osa_8dir_cgamg_curmap_masked_80thpct.tif', overwrite=T)
 
 circuit_patches <- terra::patches(circuit_test_RK, directions=8, filename='Data/spatial/tump/Circuit_patches_10m.tif', overwrite=T)
 # plot(AmistOsa)
@@ -86,6 +88,7 @@ forest_polygon_current_df <- cbind.data.frame(forest_polygon_current_min[,c(1,2)
                                               forest_polygon_current_mean[,2])
 colnames(forest_polygon_current_df) <- c('Rowid','min','median','max','mean')
 summary(forest_polygon_current_df)
+#write.csv(forest_polygon_current_df, file='Data/spatial/LandscapeStructure/forest_patch_current.csv', row.names=F)
 
 par(mfrow=c(2,2))
 hist(forest_polygon_current_df$min, main='Forest patch minimum current',
@@ -97,7 +100,28 @@ hist(forest_polygon_current_df$max, main='Forest patch maximum current',
 hist(forest_polygon_current_df$mean, main='Forest patch mean current',
      xlab='Mean current')
 
+patch_area <- terra::expanse(forest_polygons, unit="km")
+forest_polygon_current_df$patch_areasqkm <- patch_area
 
-#forest_polygons_current_shp <- terra::merge(forest_polygons, forest_polygon_current_mean)
+par(mfrow=c(2,2))
+plot(mean ~ patch_areasqkm, data=forest_polygon_current_df, pch=20,
+     xlim=c(), xlab='Patch area (sq km)', ylab='Mean current',
+     main='Mean current', las=1)
 
+plot(max ~ patch_areasqkm, data=forest_polygon_current_df, pch=20,
+     xlim=c(), xlab='Patch area (sq km)', ylab='Max current',
+     main='Max current', las=1)
+
+plot(mean ~ patch_areasqkm, data=forest_polygon_current_df, pch=20,
+     xlim=c(0,1), xlab='Patch area (sq km)', ylab='Mean current',
+     main='Mean current', las=1)
+
+plot(max ~ patch_areasqkm, data=forest_polygon_current_df, pch=20,
+     xlim=c(0,1), xlab='Patch area (sq km)', ylab='Max current',
+     main='Max current', las=1)
+
+
+forest_polygons$Rowid <- seq(1,nrow(forest_polygon_current_df),1)
+forest_polygons_current_shp <- terra::merge(forest_polygons, forest_polygon_current_df, by='Rowid')
+#writeVector(forest_polygons_current_shp, filename='Data/spatial/LandscapeStructure/forest_polygons_wCurrent.shp', overwrite=T)
 
