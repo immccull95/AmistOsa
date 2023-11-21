@@ -15,6 +15,7 @@ library(sf)
 library(dplyr)
 library(lwgeom)
 library(timechange)
+library(terra)
 
 # some data to play with, contrained manually to a settlement
 city = getbb("goslar, deutschland",  featuretype = "city" )
@@ -29,7 +30,7 @@ q = opq(city) |> add_osm_feature(key = "highway", value = "residential")
 roadss = osmdata_sf(q)
 plot(roadss$osm_lines[0])
 
-st_intersecti
+#st_intersecti
 # first part: points at intersections; 
 #filter out lines, because a line will intersect with itself, thus will be returned as an intersection
 q_int = st_intersection(roadss$osm_lines)
@@ -42,6 +43,8 @@ st_segmentize(roadss$osm_lines[0], units::set_units(0.1, rad)) |>
   plot(col = "blue", cex = 0.4, add = T, pch = 20)
 
 ####
+setwd("C:/Users/immccull/Documents/AmistOsa")
+top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
 LCP_sf <- sf::st_as_sf(top5_LCP)
 
 test <- st_intersection(LCP_sf$geometry)

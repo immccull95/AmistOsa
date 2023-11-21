@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 11-10-23
+# updated: 11-16-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -54,7 +54,7 @@ top3_LCP <- terra::vect("Data/spatial/LeastCostPaths/top3/AmistOsa_LCPs_merged_t
 top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
 
 # and the attributes (e.g., terrain, protection data)
-LCP_export <- read.csv("Data/spatial/LeastCostPAths/top5_LCP_attributes.csv")
+LCP_export <- read.csv("Data/spatial/LeastCostPaths/top5_LCP_attributes.csv")
 
 #### Main program ####
 # Map of all candidate LCPs
@@ -69,89 +69,96 @@ plot(pejeperro, add=T, col='dodgerblue')
 plot(terraba_sierpe2, add=T, col='beige')
 
 ## keep only lowest cost path(s) per origin
-# npaths <- 5 #number of paths to keep
-# corcovado$ID <- seq(1,nrow(corcovado),1)
-# corcovado$Start <- 'Corcovado'
-# corcovado_LCP <- as.data.frame(corcovado) %>% group_by(cost) %>% slice(1:npaths)
-# corcovado_LCP <- corcovado_LCP[c(1:npaths),]
-# corcovado_LCP <- corcovado_LCP$ID
-# corcovado_LCP <- subset(corcovado, corcovado$ID %in% corcovado_LCP)
-# writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top5/corcovado_LCP_top5.shp', overwrite=T)
-# #writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top3/corcovado_LCP_top3.shp', overwrite=T)
-# 
-# piedras_blancas$ID <- seq(1,nrow(piedras_blancas),1)
-# piedras_blancas$Start <- 'PB'
-# piedras_blancas_LCP <- as.data.frame(piedras_blancas) %>% group_by(cost) %>% slice(1:npaths)
-# piedras_blancas_LCP <- piedras_blancas_LCP[c(1:npaths),]
-# piedras_blancas_LCP <- piedras_blancas_LCP$ID
-# piedras_blancas_LCP <- subset(piedras_blancas, piedras_blancas$ID %in% piedras_blancas_LCP)
-# writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top5/piedras_blancas_LCP_top5.shp', overwrite=T)
-# #writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top3/piedras_blancas_LCP_top3.shp', overwrite=T)
-# 
-# terraba_sierpe1$ID <- seq(1,nrow(terraba_sierpe1),1)
-# terraba_sierpe1$Start <- 'TS1'
-# terraba_sierpe1_LCP <- as.data.frame(terraba_sierpe1) %>% group_by(cost) %>% slice(1:npaths)
-# terraba_sierpe1_LCP <- terraba_sierpe1_LCP[c(1:npaths),]
-# terraba_sierpe1_LCP <- terraba_sierpe1_LCP$ID
-# terraba_sierpe1_LCP <- subset(terraba_sierpe1, terraba_sierpe1$ID %in% terraba_sierpe1_LCP)
-# writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe1_LCP_top5.shp', overwrite=T)
-# #writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe1_LCP_top3.shp', overwrite=T)
-# 
-# golfo_dulce$ID <- seq(1,nrow(golfo_dulce),1)
-# golfo_dulce$Start <- 'GD'
-# golfo_dulce_LCP <- as.data.frame(golfo_dulce) %>% group_by(cost) %>% slice(1:npaths)
-# golfo_dulce_LCP <- golfo_dulce_LCP[c(1:npaths),]
-# golfo_dulce_LCP <- golfo_dulce_LCP$ID
-# golfo_dulce_LCP <- subset(golfo_dulce, golfo_dulce$ID %in% golfo_dulce_LCP)
-# writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top5/golfo_dulce_LCP_top5.shp', overwrite=T)
-# #writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top3/golfo_dulce_LCP_top3.shp', overwrite=T)
-# 
-# golfito$ID <- seq(1,nrow(golfito),1)
-# golfito$Start <- 'Golfito'
-# golfito_LCP <- as.data.frame(golfito) %>% group_by(cost) %>% slice(1:npaths)
-# golfito_LCP <- golfito_LCP[c(1:npaths),]
-# golfito_LCP <- golfito_LCP$ID
-# golfito_LCP <- subset(golfito, golfito$ID %in% golfito_LCP)
-# writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top5/golfito_LCP_top5.shp', overwrite=T)
-# #writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top3/golfito_LCP_top3.shp', overwrite=T)
-# 
-# osa$ID <- seq(1,nrow(osa),1)
-# osa$Start <- 'Osa'
-# osa_LCP <- as.data.frame(osa) %>% group_by(cost) %>% slice(1:npaths)
-# osa_LCP <- osa_LCP[c(1:npaths),]
-# osa_LCP <- osa_LCP$ID
-# osa_LCP <- subset(osa, osa$ID %in% osa_LCP)
-# writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top5/osa_LCP_top5.shp', overwrite=T)
-# #writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top3/osa_LCP_top3.shp', overwrite=T)
-# 
-# pejeperro$ID <- seq(1,nrow(pejeperro),1)
-# pejeperro$Start <- 'Pejeperro'
-# pejeperro_LCP <- as.data.frame(pejeperro) %>% group_by(cost) %>% slice(1:npaths)
-# pejeperro_LCP <- pejeperro_LCP[c(1:npaths),]
-# pejeperro_LCP <- pejeperro_LCP$ID
-# pejeperro_LCP <- subset(pejeperro, pejeperro$ID %in% pejeperro_LCP)
-# writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top5/pejeperro_LCP_top5.shp', overwrite=T)
-# #writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top3/pejeperro_LCP_top3.shp', overwrite=T)
-# 
-# terraba_sierpe2$ID <- seq(1,nrow(terraba_sierpe2),1)
-# terraba_sierpe2$Start <- 'TS2'
-# terraba_sierpe2_LCP <- as.data.frame(terraba_sierpe2) %>% group_by(cost) %>% slice(1:npaths)
-# terraba_sierpe2_LCP <- terraba_sierpe2_LCP[c(1:npaths),]
-# terraba_sierpe2_LCP <- terraba_sierpe2_LCP$ID
-# terraba_sierpe2_LCP <- subset(terraba_sierpe2, terraba_sierpe2$ID %in% terraba_sierpe2_LCP)
-# writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe2_LCP_top5.shp', overwrite=T)
-# #writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe2_LCP_top3.shp', overwrite=T)
-# 
-# 
-# plot(AmistOsa)
-# plot(corcovado_LCP, add=T, col='red')
-# plot(piedras_blancas_LCP, add=T, col='blue')
-# plot(terraba_sierpe1_LCP, add=T, col='green')
-# plot(golfo_dulce_LCP, add=T, col='gold')
-# plot(golfito_LCP, add=T, col='gray')
-# plot(osa_LCP, add=T, col='purple')
-# plot(pejeperro_LCP, add=T, col='dodgerblue')
-# plot(terraba_sierpe1_LCP, add=T, col='beige')
+npaths <- 1 #number of paths to keep
+corcovado$ID <- seq(1,nrow(corcovado),1)
+corcovado$Start <- 'Corcovado'
+corcovado_LCP <- as.data.frame(corcovado) %>% group_by(cost) %>% slice(1:npaths)
+corcovado_LCP <- corcovado_LCP[c(1:npaths),]
+corcovado_LCP <- corcovado_LCP$ID
+corcovado_LCP <- subset(corcovado, corcovado$ID %in% corcovado_LCP)
+#writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top5/corcovado_LCP_top5.shp', overwrite=T)
+#writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top3/corcovado_LCP_top3.shp', overwrite=T)
+writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top1/corcovado_LCP_top1.shp', overwrite=T)
+
+piedras_blancas$ID <- seq(1,nrow(piedras_blancas),1)
+piedras_blancas$Start <- 'PB'
+piedras_blancas_LCP <- as.data.frame(piedras_blancas) %>% group_by(cost) %>% slice(1:npaths)
+piedras_blancas_LCP <- piedras_blancas_LCP[c(1:npaths),]
+piedras_blancas_LCP <- piedras_blancas_LCP$ID
+piedras_blancas_LCP <- subset(piedras_blancas, piedras_blancas$ID %in% piedras_blancas_LCP)
+#writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top5/piedras_blancas_LCP_top5.shp', overwrite=T)
+#writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top3/piedras_blancas_LCP_top3.shp', overwrite=T)
+writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top1/piedras_blancas_LCP_top1.shp', overwrite=T)
+
+terraba_sierpe1$ID <- seq(1,nrow(terraba_sierpe1),1)
+terraba_sierpe1$Start <- 'TS1'
+terraba_sierpe1_LCP <- as.data.frame(terraba_sierpe1) %>% group_by(cost) %>% slice(1:npaths)
+terraba_sierpe1_LCP <- terraba_sierpe1_LCP[c(1:npaths),]
+terraba_sierpe1_LCP <- terraba_sierpe1_LCP$ID
+terraba_sierpe1_LCP <- subset(terraba_sierpe1, terraba_sierpe1$ID %in% terraba_sierpe1_LCP)
+#writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe1_LCP_top5.shp', overwrite=T)
+#writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe1_LCP_top3.shp', overwrite=T)
+writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe1_LCP_top1.shp', overwrite=T)
+
+golfo_dulce$ID <- seq(1,nrow(golfo_dulce),1)
+golfo_dulce$Start <- 'GD'
+golfo_dulce_LCP <- as.data.frame(golfo_dulce) %>% group_by(cost) %>% slice(1:npaths)
+golfo_dulce_LCP <- golfo_dulce_LCP[c(1:npaths),]
+golfo_dulce_LCP <- golfo_dulce_LCP$ID
+golfo_dulce_LCP <- subset(golfo_dulce, golfo_dulce$ID %in% golfo_dulce_LCP)
+#writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top5/golfo_dulce_LCP_top5.shp', overwrite=T)
+#writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top3/golfo_dulce_LCP_top3.shp', overwrite=T)
+writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top1/golfo_dulce_LCP_top1.shp', overwrite=T)
+
+golfito$ID <- seq(1,nrow(golfito),1)
+golfito$Start <- 'Golfito'
+golfito_LCP <- as.data.frame(golfito) %>% group_by(cost) %>% slice(1:npaths)
+golfito_LCP <- golfito_LCP[c(1:npaths),]
+golfito_LCP <- golfito_LCP$ID
+golfito_LCP <- subset(golfito, golfito$ID %in% golfito_LCP)
+#writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top5/golfito_LCP_top5.shp', overwrite=T)
+#writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top3/golfito_LCP_top3.shp', overwrite=T)
+writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top1/golfito_LCP_top1.shp', overwrite=T)
+
+osa$ID <- seq(1,nrow(osa),1)
+osa$Start <- 'Osa'
+osa_LCP <- as.data.frame(osa) %>% group_by(cost) %>% slice(1:npaths)
+osa_LCP <- osa_LCP[c(1:npaths),]
+osa_LCP <- osa_LCP$ID
+osa_LCP <- subset(osa, osa$ID %in% osa_LCP)
+#writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top5/osa_LCP_top5.shp', overwrite=T)
+#writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top3/osa_LCP_top3.shp', overwrite=T)
+writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top1/osa_LCP_top1.shp', overwrite=T)
+
+pejeperro$ID <- seq(1,nrow(pejeperro),1)
+pejeperro$Start <- 'Pejeperro'
+pejeperro_LCP <- as.data.frame(pejeperro) %>% group_by(cost) %>% slice(1:npaths)
+pejeperro_LCP <- pejeperro_LCP[c(1:npaths),]
+pejeperro_LCP <- pejeperro_LCP$ID
+pejeperro_LCP <- subset(pejeperro, pejeperro$ID %in% pejeperro_LCP)
+#writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top5/pejeperro_LCP_top5.shp', overwrite=T)
+#writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top3/pejeperro_LCP_top3.shp', overwrite=T)
+writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top1/pejeperro_LCP_top1.shp', overwrite=T)
+
+terraba_sierpe2$ID <- seq(1,nrow(terraba_sierpe2),1)
+terraba_sierpe2$Start <- 'TS2'
+terraba_sierpe2_LCP <- as.data.frame(terraba_sierpe2) %>% group_by(cost) %>% slice(1:npaths)
+terraba_sierpe2_LCP <- terraba_sierpe2_LCP[c(1:npaths),]
+terraba_sierpe2_LCP <- terraba_sierpe2_LCP$ID
+terraba_sierpe2_LCP <- subset(terraba_sierpe2, terraba_sierpe2$ID %in% terraba_sierpe2_LCP)
+#writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe2_LCP_top5.shp', overwrite=T)
+#writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe2_LCP_top3.shp', overwrite=T)
+writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe2_LCP_top1.shp', overwrite=T)
+
+plot(AmistOsa)
+plot(corcovado_LCP, add=T, col='red')
+plot(piedras_blancas_LCP, add=T, col='blue')
+plot(terraba_sierpe1_LCP, add=T, col='green')
+plot(golfo_dulce_LCP, add=T, col='gold')
+plot(golfito_LCP, add=T, col='gray')
+plot(osa_LCP, add=T, col='purple')
+plot(pejeperro_LCP, add=T, col='dodgerblue')
+plot(terraba_sierpe2_LCP, add=T, col='beige')
 
 ## Buffer LCPs
 buff_dist <- 1000 #meters
@@ -215,7 +222,13 @@ plot(LULC_1000)
 # terraba_sierpe2_density <- create_lcp_density(LULC_1000, terraba_sierpe2)
 
 top5_LCP_density <- create_lcp_density(LULC_1000, top5_LCP)
-plot(top5_LCP_density, main='Least cost path density')
+
+jpeg(filename='Figures/AmistOsa_LCP_top5_density.jpeg', height=4, width=4, units='in', res=300)
+  terra::plot(top5_LCP_density, main='', axes=F)
+  plot(AmistOsa, add=T)
+dev.off()
+
+#writeRaster(top5_LCP_density, filename='Data/spatial/LeastCostPaths/top5_LCP_density.tif', overwrite=T)
 #mtext(side=3, "corridors/sq km")
 hist(top5_LCP_density)
 

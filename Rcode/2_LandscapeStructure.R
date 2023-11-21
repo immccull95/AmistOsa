@@ -1,6 +1,6 @@
 ################## AmistOsa landscape structure analysis ##########################
 # Date: 9-26-23
-# updated: 11-6-23; cv stats
+# updated: 11-20-23; ag patches
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -228,6 +228,17 @@ ggplot(pie_data, aes(x = "", y = pct, fill = TypeFac)) +
 dev.off()
 #write.csv(pie_data, file='Data/spatial/LULC/AmistOsa_LULC.csv', row.names=F)
 
+## Update: get ag patches
+mag <- c(2,3,1)  #with Yana's: 2=palm, 3=pineapple
+rclmat_ag <- matrix(mag, ncol=3, byrow=T)
+AmistOsa_ag <- terra::classify(intermed_mosaic_roads, rclmat_ag, include.lowest=T, others=NA)
+plot(AmistOsa_ag)
+#writeRaster(AmistOsa_ag, filename='Data/spatial/LandscapeStructure/AmistOsa_ag.tif')
+
+AmistOsa_ag_patches <- terra::patches(AmistOsa_ag, directions=8, filename='Data/spatial/LandscapeStructure/AmistOsa_ag_patches.tif', overwrite=T)
+plot(AmistOsa_ag_patches)
+
+number_ag_patches <- lsm_l_np(AmistOsa_ag_patches, directions=8)
 
 #### Commence landscape structure analysis ####
 # number of forest patches

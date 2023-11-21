@@ -123,7 +123,7 @@ end_v <- crop(end_all, aoi)
 #end_p <- terra::intersect(end_nodes, AmistOsa)
 end_p <- terra::intersect(end_nodes1km, AmistOsa)
 # These are our "grounds" where the current will travel to
-# Perhaps this is something we change; basically it is just one dot
+# Basically just one dot if we only use one big AmistOsa blob
 grounds <- rasterize(end_p,lc, 
                      field=1) # make the area the current
 #grounds <- rasterize(end_p,lc_20, 
