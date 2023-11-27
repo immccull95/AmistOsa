@@ -1,6 +1,6 @@
 ######################## AmistOsa least cost paths ################################
 # Date: 10-30-23
-# updated: 11-1-23
+# updated: 11-27-23; rerun with new conductance surface
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -18,7 +18,8 @@ AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa.shp")
 AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 
 # Conductance surface (lc: land cover)
-lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif")
+#lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif")
+lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif")
 
 # All start and end polygons
 start_all <- vect("Data/spatial/nodes/start_nodes_AmistOsa.shp")
@@ -80,7 +81,7 @@ for (i in 1:nrow(start_points)){
   start_sub <- start_points[i]
   lcps <- create_lcp(condmat, origin=start_sub, destination=end_points, cost_distance=T)
   filename <- paste0("Data/spatial/LeastCostPaths/", start_sub$START_CODE, ".shp")
-  terra::writeVector(lcps, filename=filename)
+  terra::writeVector(lcps, filename=filename, overwrite=T)
 
   filename_csv <- paste0("Data/spatial/LeastCostPaths/", start_sub$START_CODE, ".csv")
   csv <- as.data.frame(lcps)

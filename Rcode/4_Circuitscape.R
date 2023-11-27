@@ -1,6 +1,6 @@
 ################# Set up for Circuitscape in Julia ################################
 # Date: 10-26-23
-# updated: 11-8-23
+# updated: 11-27-23; rerun with new conductance surface
 # Author: Ian McCullough, immccull@gmail.com, Chris Beirne (chrisbeirne@osaconservation.org)
 ###################################################################################
 
@@ -26,7 +26,8 @@ AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa.shp")
 AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 
 # Conductance surface (lc: land cover)
-lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif")
+#lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif")
+lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif")
 #lc_20 <- terra::aggregate(lc, fact=2)
 
 # All start and end polygons
@@ -177,6 +178,7 @@ res_cur_mask <- terra::mask(res_cur, AmistOsa, inverse=F)
 #res_cur_mask2 <- terra::mask(res_cur_14, AmistOsa, inverse=F)
 plot(res_cur_mask)
 plot(end_v, add=T, col='forestgreen')
+writeRaster(res_cur_mask, overwrite=T, filename="julia/output/osa_8dir_cgamg_curmap_masked.tif")
 
 #plot(res_cur_mask2)
 

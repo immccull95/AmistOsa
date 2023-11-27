@@ -1,6 +1,6 @@
 ################## AmistOsa landscape structure analysis ##########################
 # Date: 9-26-23
-# updated: 11-20-23; ag patches
+# updated: 11-27-23; redo ag patches with low vegetation
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -229,11 +229,17 @@ dev.off()
 #write.csv(pie_data, file='Data/spatial/LULC/AmistOsa_LULC.csv', row.names=F)
 
 ## Update: get ag patches
-mag <- c(2,3,1)  #with Yana's: 2=palm, 3=pineapple
+#0=low veg (cropland/pasture)
+#2=palm, 3=pineapple
+#mag <- c(2,3,1)
+mag <- c(0,0,1,
+         2,3,1,
+         4,99,NA)
 rclmat_ag <- matrix(mag, ncol=3, byrow=T)
-AmistOsa_ag <- terra::classify(intermed_mosaic_roads, rclmat_ag, include.lowest=T, others=NA)
+AmistOsa_ag <- terra::classify(intermed_mosaic_roads, rclmat_ag, right=NA)
 plot(AmistOsa_ag)
-#writeRaster(AmistOsa_ag, filename='Data/spatial/LandscapeStructure/AmistOsa_ag.tif')
+freq(AmistOsa_ag)
+#writeRaster(AmistOsa_ag, filename='Data/spatial/LandscapeStructure/AmistOsa_ag.tif', overwrite=T)
 
 AmistOsa_ag_patches <- terra::patches(AmistOsa_ag, directions=8, filename='Data/spatial/LandscapeStructure/AmistOsa_ag_patches.tif', overwrite=T)
 plot(AmistOsa_ag_patches)

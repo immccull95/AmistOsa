@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 11-16-23
+# updated: 11-27-23; update multi-panel figure
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -49,6 +49,9 @@ slope <- terra::rast("Data/spatial/SRTM/AmistOsa_slope30.tif")
 # Forest patches
 forest_patches <- terra::vect("Data/spatial/LandscapeStructure/forest_polygons.shp")
 
+# Ag patches
+ag_patches <- terra::vect("Data/spatial/LandscapeStructure/ag_polygons.shp")
+
 # If already run, top 3 and top 5 least cost paths from each lowland protected area to La Amistad
 top3_LCP <- terra::vect("Data/spatial/LeastCostPaths/top3/AmistOsa_LCPs_merged_top3.shp")
 top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
@@ -78,7 +81,7 @@ corcovado_LCP <- corcovado_LCP$ID
 corcovado_LCP <- subset(corcovado, corcovado$ID %in% corcovado_LCP)
 #writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top5/corcovado_LCP_top5.shp', overwrite=T)
 #writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top3/corcovado_LCP_top3.shp', overwrite=T)
-writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top1/corcovado_LCP_top1.shp', overwrite=T)
+#writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top1/corcovado_LCP_top1.shp', overwrite=T)
 
 piedras_blancas$ID <- seq(1,nrow(piedras_blancas),1)
 piedras_blancas$Start <- 'PB'
@@ -88,7 +91,7 @@ piedras_blancas_LCP <- piedras_blancas_LCP$ID
 piedras_blancas_LCP <- subset(piedras_blancas, piedras_blancas$ID %in% piedras_blancas_LCP)
 #writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top5/piedras_blancas_LCP_top5.shp', overwrite=T)
 #writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top3/piedras_blancas_LCP_top3.shp', overwrite=T)
-writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top1/piedras_blancas_LCP_top1.shp', overwrite=T)
+#writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top1/piedras_blancas_LCP_top1.shp', overwrite=T)
 
 terraba_sierpe1$ID <- seq(1,nrow(terraba_sierpe1),1)
 terraba_sierpe1$Start <- 'TS1'
@@ -98,7 +101,7 @@ terraba_sierpe1_LCP <- terraba_sierpe1_LCP$ID
 terraba_sierpe1_LCP <- subset(terraba_sierpe1, terraba_sierpe1$ID %in% terraba_sierpe1_LCP)
 #writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe1_LCP_top5.shp', overwrite=T)
 #writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe1_LCP_top3.shp', overwrite=T)
-writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe1_LCP_top1.shp', overwrite=T)
+#writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe1_LCP_top1.shp', overwrite=T)
 
 golfo_dulce$ID <- seq(1,nrow(golfo_dulce),1)
 golfo_dulce$Start <- 'GD'
@@ -108,7 +111,7 @@ golfo_dulce_LCP <- golfo_dulce_LCP$ID
 golfo_dulce_LCP <- subset(golfo_dulce, golfo_dulce$ID %in% golfo_dulce_LCP)
 #writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top5/golfo_dulce_LCP_top5.shp', overwrite=T)
 #writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top3/golfo_dulce_LCP_top3.shp', overwrite=T)
-writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top1/golfo_dulce_LCP_top1.shp', overwrite=T)
+#writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top1/golfo_dulce_LCP_top1.shp', overwrite=T)
 
 golfito$ID <- seq(1,nrow(golfito),1)
 golfito$Start <- 'Golfito'
@@ -118,7 +121,7 @@ golfito_LCP <- golfito_LCP$ID
 golfito_LCP <- subset(golfito, golfito$ID %in% golfito_LCP)
 #writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top5/golfito_LCP_top5.shp', overwrite=T)
 #writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top3/golfito_LCP_top3.shp', overwrite=T)
-writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top1/golfito_LCP_top1.shp', overwrite=T)
+#writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top1/golfito_LCP_top1.shp', overwrite=T)
 
 osa$ID <- seq(1,nrow(osa),1)
 osa$Start <- 'Osa'
@@ -128,7 +131,7 @@ osa_LCP <- osa_LCP$ID
 osa_LCP <- subset(osa, osa$ID %in% osa_LCP)
 #writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top5/osa_LCP_top5.shp', overwrite=T)
 #writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top3/osa_LCP_top3.shp', overwrite=T)
-writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top1/osa_LCP_top1.shp', overwrite=T)
+#writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top1/osa_LCP_top1.shp', overwrite=T)
 
 pejeperro$ID <- seq(1,nrow(pejeperro),1)
 pejeperro$Start <- 'Pejeperro'
@@ -138,7 +141,7 @@ pejeperro_LCP <- pejeperro_LCP$ID
 pejeperro_LCP <- subset(pejeperro, pejeperro$ID %in% pejeperro_LCP)
 #writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top5/pejeperro_LCP_top5.shp', overwrite=T)
 #writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top3/pejeperro_LCP_top3.shp', overwrite=T)
-writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top1/pejeperro_LCP_top1.shp', overwrite=T)
+#writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top1/pejeperro_LCP_top1.shp', overwrite=T)
 
 terraba_sierpe2$ID <- seq(1,nrow(terraba_sierpe2),1)
 terraba_sierpe2$Start <- 'TS2'
@@ -148,7 +151,7 @@ terraba_sierpe2_LCP <- terraba_sierpe2_LCP$ID
 terraba_sierpe2_LCP <- subset(terraba_sierpe2, terraba_sierpe2$ID %in% terraba_sierpe2_LCP)
 #writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe2_LCP_top5.shp', overwrite=T)
 #writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe2_LCP_top3.shp', overwrite=T)
-writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe2_LCP_top1.shp', overwrite=T)
+#writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe2_LCP_top1.shp', overwrite=T)
 
 plot(AmistOsa)
 plot(corcovado_LCP, add=T, col='red')
@@ -403,6 +406,17 @@ LCP_forest_patches_summary <- LCP_forest_patches_df[,c('LCP_ID','Start')] %>%
 summary(LCP_forest_patches_summary)
 hist(LCP_forest_patches_summary$nForestPatches, main='Forest patches crossed')
 
+## Ag patches crossed
+LCP_ag_patches <- terra::intersect(top5_LCP_buff, ag_patches)
+LCP_ag_patches_df <- as.data.frame(LCP_ag_patches)
+LCP_ag_patches_summary <- LCP_ag_patches_df[,c('LCP_ID','Start')] %>%
+  dplyr::group_by(LCP_ID) %>%
+  dplyr::summarize(nAgPatches=n()) %>%
+  as.data.frame()
+
+summary(LCP_ag_patches_summary)
+hist(LCP_ag_patches_summary$nAgPatches, main='ag patches crossed')
+
 ## Percent ag 
 agmat <- c(0,1,NA,
            2,3,1,
@@ -559,10 +573,13 @@ corridor_density_df <- do.call(rbind.data.frame, density_list)
 
 ### merge and export output
 merger_list <- list(LCP_biomass, LCP_elevation, LCP_slope, LCP_protection_count, LCP_protection_dissolved_df[,c(6,9:12)], 
-                    LCP_roads_summary, LCP_forest_patches_summary, LCP_forest[,c(5:6)], LCP_ag[,c(5:6)], 
+                    LCP_roads_summary, LCP_forest_patches_summary, LCP_ag_patches_summary, LCP_forest[,c(5:6)], LCP_ag[,c(5:6)], 
                     corridor_density_df, LCP_intersecting_corridors, LCP_pct_overlap)
 LCP_export <- Reduce(function(x, y) merge(x, y, all=T), merger_list)
 LCP_export$LCP_length_km <- LCP_length_km
+LCP_export$nTotalRoads_perkm <- LCP_export$nTotalRoads/LCP_export$LCP_length_km
+LCP_export$nForestPatches_perkm <- LCP_export$nForestPatches/LCP_export$LCP_length_km
+LCP_export$nAgPatches_perkm <- LCP_export$nAgPatches/LCP_export$LCP_length_km
 #write.csv(LCP_export, file='Data/spatial/LeastCostPaths/top5_LCP_attributes.csv', row.names=F)
 double <- LCP_export
 double$Start <- 'All'
@@ -575,167 +592,217 @@ site_names <- c('COR', 'GD','GOL','OSA','PB',
                 'PEJ','TSW','TSE','All')
 plot_colors <- c('forestgreen','dodgerblue','orange','gold','salmon','purple','lightgreen','tan','gray')
 
-cost_plot <-ggplot(LCP_export_double, aes(x=Start, y=Cost, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Cost')+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('A) Accumulated cost')
-cost_plot
+# cost_plot <-ggplot(LCP_export_double, aes(x=Start, y=Cost, fill=Start)) +
+#   geom_boxplot()+
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+#         axis.text.y=element_text(color='black'),
+#         legend.position=c('none'))+
+#   scale_fill_manual(values=plot_colors)+
+#   scale_y_continuous(name='Cost')+
+#   scale_x_discrete(name='', labels=site_names)+
+#   ggtitle('A) Accumulated cost')
+# cost_plot
 
 length_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_length_km, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Distance (km)')+
+  scale_y_continuous(name='Length (km)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('B) Distance')
+  ggtitle('A) Length')
 length_plot
+
+pct_protected_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_protected, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Protection (%)')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('B) Protection')
+pct_protected_plot
 
 biomass_plot <-ggplot(LCP_export_double, aes(x=Start, y=Biomass_mean, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Mean biomass (Mt C)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('Forest biomass')
+  ggtitle('C) Forest biomass (mean)')
 biomass_plot
 
 # note trimmed axis removed one large data point
-elevation_plot <-ggplot(LCP_export_double, aes(x=Start, y=elevation_range, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Elevation gain (m)', limits=c(1400,2000))+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('C) Elevation')
-elevation_plot
+# elevation_plot <-ggplot(LCP_export_double, aes(x=Start, y=elevation_range, fill=Start)) +
+#   geom_boxplot()+
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+#         axis.text.y=element_text(color='black'),
+#         legend.position=c('none'))+
+#   scale_fill_manual(values=plot_colors)+
+#   scale_y_continuous(name='Elevation gain (m)', limits=c(1400,2000))+
+#   scale_x_discrete(name='', labels=site_names)+
+#   ggtitle('C) Elevation')
+# elevation_plot
 
-slope_plot <-ggplot(LCP_export_double, aes(x=Start, y=slope_mean, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Mean slope (deg)')+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('Slope')
-slope_plot
+# slope_plot <-ggplot(LCP_export_double, aes(x=Start, y=slope_mean, fill=Start)) +
+#   geom_boxplot()+
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+#         axis.text.y=element_text(color='black'),
+#         legend.position=c('none'))+
+#   scale_fill_manual(values=plot_colors)+
+#   scale_y_continuous(name='Mean slope (deg)')+
+#   scale_x_discrete(name='', labels=site_names)+
+#   ggtitle('Slope')
+# slope_plot
 
-nPA_plot <-ggplot(LCP_export_double, aes(x=Start, y=nPA, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Protected areas')+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('Number of protected areas')
-nPA_plot
-
-pct_protected_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_protected, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Protected (%)')+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('D) Protection')
-pct_protected_plot
-
-roads_plot <-ggplot(LCP_export_double, aes(x=Start, y=nTotalRoads, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Road crossings')+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('E) Road crossings')
-roads_plot
-
-forest_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nForestPatches, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Patch crossings')+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('F) Forest patch crossings')
-forest_patches_plot
+# nPA_plot <-ggplot(LCP_export_double, aes(x=Start, y=nPA, fill=Start)) +
+#   geom_boxplot()+
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+#         axis.text.y=element_text(color='black'),
+#         legend.position=c('none'))+
+#   scale_fill_manual(values=plot_colors)+
+#   scale_y_continuous(name='Protected areas')+
+#   scale_x_discrete(name='', labels=site_names)+
+#   ggtitle('Number of protected areas')
+# nPA_plot
 
 forest_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_forest, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Forest (%)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('G) Forest cover')
+  ggtitle('D) Forest cover')
 forest_pct_plot
+
+forest_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nForestPatches, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Patch crossings')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('E) Forest patches')
+forest_patches_plot
+
+#LCP_export_double$nForestPatches_perkm <- LCP_export_double$nForestPatches/LCP_export_double$LCP_length_km
+forest_patches_perkm_plot <-ggplot(LCP_export_double, aes(x=Start, y=nForestPatches_perkm, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Patch crossings/km')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('F) Forest patches/km')
+forest_patches_perkm_plot
 
 ag_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_ag, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Agriculture (%)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('H) Agriculture cover')
+  ggtitle('G) Agriculture cover')
 ag_pct_plot
 
-pct_unique_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_pct_unique, fill=Start)) +
+ag_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nAgPatches, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Uniqueness (%)', limits=c())+
+  scale_y_continuous(name='Patch crossings')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('Uniqueness')
-pct_unique_plot
+  ggtitle('H) Agriculture patches')
+ag_patches_plot
+
+ag_patches_perkm_plot <-ggplot(LCP_export_double, aes(x=Start, y=nAgPatches_perkm, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Patch crossings/km')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('I) Agriculture patches/km')
+ag_patches_perkm_plot
+
+# pct_unique_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_pct_unique, fill=Start)) +
+#   geom_boxplot()+
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+#         axis.text.y=element_text(color='black'),
+#         legend.position=c('none'))+
+#   scale_fill_manual(values=plot_colors)+
+#   scale_y_continuous(name='Uniqueness (%)', limits=c())+
+#   scale_x_discrete(name='', labels=site_names)+
+#   ggtitle('Uniqueness')
+# pct_unique_plot
+
+roads_plot <-ggplot(LCP_export_double, aes(x=Start, y=nTotalRoads, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Road crossings')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('J) Road crossings')
+roads_plot
+
+#LCP_export_double$nTotalRoads_perkm <- LCP_export_double$nTotalRoads/LCP_export_double$LCP_length_km
+roads_perkm_plot <-ggplot(LCP_export_double, aes(x=Start, y=nTotalRoads_perkm, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Road crossings/km')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('K) Road crossings/km')
+roads_perkm_plot
 
 LCP_density_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_density_range, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Corridor density')+
+  scale_y_continuous(name='Corridors/sq km')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('Corridor density (mean)')
+  ggtitle('L) Corridor density (mean)')
 LCP_density_plot
 
 # LCP_density_plot2 <-ggplot(LCP_export_double, aes(x=Start, y=LCP_density_mean, fill=Start)) +
 #   geom_boxplot()+
 #   theme_classic()+
-#   theme(axis.text.x=element_text(color='black', size=8),
+#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
 #         axis.text.y=element_text(color='black'),
 #         legend.position=c('none'))+
 #   scale_fill_manual(values=plot_colors)+
@@ -744,21 +811,23 @@ LCP_density_plot
 #   ggtitle('N) Corridor density (range)')
 # LCP_density_plot2
 
-LCP_intersection_plot <-ggplot(LCP_export_double, aes(x=Start, y=nIntersectingCorridors, fill=Start)) +
-  geom_boxplot()+
-  theme_classic()+
-  theme(axis.text.x=element_text(color='black', size=8),
-        axis.text.y=element_text(color='black'),
-        legend.position=c('none'))+
-  scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Intersecting corridors')+
-  scale_x_discrete(name='', labels=site_names)+
-  ggtitle('Intersecting corridors')
-LCP_intersection_plot
+# LCP_intersection_plot <-ggplot(LCP_export_double, aes(x=Start, y=nIntersectingCorridors, fill=Start)) +
+#   geom_boxplot()+
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+#         axis.text.y=element_text(color='black'),
+#         legend.position=c('none'))+
+#   scale_fill_manual(values=plot_colors)+
+#   scale_y_continuous(name='Intersecting corridors')+
+#   scale_x_discrete(name='', labels=site_names)+
+#   ggtitle('Intersecting corridors')
+# LCP_intersection_plot
 
-jpeg(filename='Figures/AmistOsa_LCP_characteristics.jpeg', height=8, width=6, units='in', res=300)
-grid.arrange(cost_plot, length_plot, elevation_plot, pct_protected_plot, roads_plot,
-             forest_patches_plot, forest_pct_plot, ag_pct_plot,
+jpeg(filename='Figures/AmistOsa_LCP_characteristics.jpeg', height=10, width=8, units='in', res=300)
+grid.arrange(length_plot, pct_protected_plot, biomass_plot,
+             forest_pct_plot, forest_patches_plot, forest_patches_perkm_plot,
+             ag_pct_plot, ag_patches_plot, ag_patches_perkm_plot,
+             roads_plot, roads_perkm_plot, LCP_density_plot,
              nrow=4)
 dev.off()
 

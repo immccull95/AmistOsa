@@ -1,6 +1,6 @@
 ################## AmistOsa landscape conductance surface #########################
 # Date: 10-3-23
-# updated: 10-18-23; new input LULC raster with roads
+# updated: 11-27-23; treating low veg as ag
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -8,7 +8,7 @@
 library(terra)
 
 #### Input data ####
-setwd("C:/Users/immcc/Documents/AmistOsa")
+setwd("C:/Users/immccull/Documents/AmistOsa")
 
 # Study area
 AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa.shp")
@@ -35,11 +35,11 @@ freq(AmistOsa_lulc)
 #snow/ice: NA
 
 # classes in Yana's map:
-#0 = low_vegetation: 150
+#0 = low_vegetation: 30 (not 150); low veg = cropland and pasture
 #1 = mangroves: (was 500, which seems way off; could set to wetlands; 20)
 #2 = palm_plantations: 30
 #3 = pineapple: 30
-#4 = riparian_zone: 1000 (treat same as forest?)
+#4 = riparian_zone: 1000 (treat same as forest)
 #5 = tropical_forest: 1000
 #6 = unclassified (replaced by values in ESA imagery)
 #7 = urban: NA
@@ -47,7 +47,7 @@ freq(AmistOsa_lulc)
 #9 = wetlands: 20
 #99 = roads: 50 (value suggested by Chris)
 
-m <- c(0,150,
+m <- c(0,30,
        1,20,
        2,30,
        3,30,
@@ -62,7 +62,7 @@ LULC_RK <- classify(AmistOsa_lulc, rclmat, others=NA)
 pal <- colorRampPalette(c("red","dodgerblue"))
 plot(LULC_RK)
 plot(LULC_RK, col=pal(5))
-#writeRaster(LULC_RK, filename='Data/spatial/LULC/AmistOsa_LULC_conductance.tif')
+#writeRaster(LULC_RK, filename='Data/spatial/LULC/AmistOsa_LULC_conductance_new.tif')
 
 # create biomass modifier
 biomass_clamped <- terra::clamp(biomass, upper=100, values=T)
@@ -88,7 +88,7 @@ final_modifier <- terra::subst(final_modifier, NA, 1)
 # implement the modifier
 conductance_final <- LULC_RK * final_modifier
 plot(conductance_final)
-#writeRaster(conductance_final, filename='Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif')
+#writeRaster(conductance_final, filename='Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif')
 
 # compare modified and unmodified conductance surfaces
 summary(conductance_final)
