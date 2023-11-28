@@ -1,6 +1,6 @@
 ################# Set up for Circuitscape in Julia ################################
 # Date: 10-26-23
-# updated: 11-27-23; rerun with new conductance surface
+# updated: 11-28-23; rerun with new conductance surface
 # Author: Ian McCullough, immccull@gmail.com, Chris Beirne (chrisbeirne@osaconservation.org)
 ###################################################################################
 
@@ -172,15 +172,22 @@ dir.create("julia/output")
 #res_cur_14 <- rast("julia/output/osa_example_8dir_20m_14_curmap.asc")
 #plot(example_cur)
 
-res_cur <- rast("julia/output/osa_8dir_cgamg_curmap.asc")
+#res_cur <- rast("julia/output/osa_8dir_cgamg_curmap.asc")
+res_cur <- rast("julia/output/osa_8dir_cgamg_new_curmap.asc")
 
 res_cur_mask <- terra::mask(res_cur, AmistOsa, inverse=F)
 #res_cur_mask2 <- terra::mask(res_cur_14, AmistOsa, inverse=F)
 plot(res_cur_mask)
 plot(end_v, add=T, col='forestgreen')
-writeRaster(res_cur_mask, overwrite=T, filename="julia/output/osa_8dir_cgamg_curmap_masked.tif")
+#writeRaster(res_cur_mask, overwrite=T, filename="julia/output/osa_8dir_cgamg_curmap_masked.tif")
 
+#res_cur_mask <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked.tif")
+stats::quantile(res_cur_mask, probs=seq(0,1,0.1), na.rm=T)
 #plot(res_cur_mask2)
+
+res_cur_mask_80 <- terra::ifel(res_cur_mask >= 0.3431641, 1, NA)
+plot(res_cur_mask_80)
+#writeRaster(res_cur_mask_80, filename="julia/output/osa_8dir_cgamg_curmap_masked_80thpctNEW.tif", overwrite=T)
 
 summary(res_cur_mask)
 hist(res_cur_mask, main='Current', xlab='Current')

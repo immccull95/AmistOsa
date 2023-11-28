@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 11-27-23; update multi-panel figure
+# updated: 11-28-23; update multi-panel figure with new LCPs
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -53,6 +53,7 @@ forest_patches <- terra::vect("Data/spatial/LandscapeStructure/forest_polygons.s
 ag_patches <- terra::vect("Data/spatial/LandscapeStructure/ag_polygons.shp")
 
 # If already run, top 3 and top 5 least cost paths from each lowland protected area to La Amistad
+top1_LCP <- terra::vect("Data/spatial/LeastCostPaths/top1/AmistOsa_LCPs_merged_top1.shp")
 top3_LCP <- terra::vect("Data/spatial/LeastCostPaths/top3/AmistOsa_LCPs_merged_top3.shp")
 top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
 
@@ -72,14 +73,14 @@ plot(pejeperro, add=T, col='dodgerblue')
 plot(terraba_sierpe2, add=T, col='beige')
 
 ## keep only lowest cost path(s) per origin
-npaths <- 1 #number of paths to keep
+npaths <- 5 #number of paths to keep
 corcovado$ID <- seq(1,nrow(corcovado),1)
 corcovado$Start <- 'Corcovado'
 corcovado_LCP <- as.data.frame(corcovado) %>% group_by(cost) %>% slice(1:npaths)
 corcovado_LCP <- corcovado_LCP[c(1:npaths),]
 corcovado_LCP <- corcovado_LCP$ID
 corcovado_LCP <- subset(corcovado, corcovado$ID %in% corcovado_LCP)
-#writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top5/corcovado_LCP_top5.shp', overwrite=T)
+writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top5/corcovado_LCP_top5.shp', overwrite=T)
 #writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top3/corcovado_LCP_top3.shp', overwrite=T)
 #writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top1/corcovado_LCP_top1.shp', overwrite=T)
 
@@ -89,7 +90,7 @@ piedras_blancas_LCP <- as.data.frame(piedras_blancas) %>% group_by(cost) %>% sli
 piedras_blancas_LCP <- piedras_blancas_LCP[c(1:npaths),]
 piedras_blancas_LCP <- piedras_blancas_LCP$ID
 piedras_blancas_LCP <- subset(piedras_blancas, piedras_blancas$ID %in% piedras_blancas_LCP)
-#writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top5/piedras_blancas_LCP_top5.shp', overwrite=T)
+writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top5/piedras_blancas_LCP_top5.shp', overwrite=T)
 #writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top3/piedras_blancas_LCP_top3.shp', overwrite=T)
 #writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top1/piedras_blancas_LCP_top1.shp', overwrite=T)
 
@@ -99,7 +100,7 @@ terraba_sierpe1_LCP <- as.data.frame(terraba_sierpe1) %>% group_by(cost) %>% sli
 terraba_sierpe1_LCP <- terraba_sierpe1_LCP[c(1:npaths),]
 terraba_sierpe1_LCP <- terraba_sierpe1_LCP$ID
 terraba_sierpe1_LCP <- subset(terraba_sierpe1, terraba_sierpe1$ID %in% terraba_sierpe1_LCP)
-#writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe1_LCP_top5.shp', overwrite=T)
+writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe1_LCP_top5.shp', overwrite=T)
 #writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe1_LCP_top3.shp', overwrite=T)
 #writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe1_LCP_top1.shp', overwrite=T)
 
@@ -109,7 +110,7 @@ golfo_dulce_LCP <- as.data.frame(golfo_dulce) %>% group_by(cost) %>% slice(1:npa
 golfo_dulce_LCP <- golfo_dulce_LCP[c(1:npaths),]
 golfo_dulce_LCP <- golfo_dulce_LCP$ID
 golfo_dulce_LCP <- subset(golfo_dulce, golfo_dulce$ID %in% golfo_dulce_LCP)
-#writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top5/golfo_dulce_LCP_top5.shp', overwrite=T)
+writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top5/golfo_dulce_LCP_top5.shp', overwrite=T)
 #writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top3/golfo_dulce_LCP_top3.shp', overwrite=T)
 #writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top1/golfo_dulce_LCP_top1.shp', overwrite=T)
 
@@ -119,7 +120,7 @@ golfito_LCP <- as.data.frame(golfito) %>% group_by(cost) %>% slice(1:npaths)
 golfito_LCP <- golfito_LCP[c(1:npaths),]
 golfito_LCP <- golfito_LCP$ID
 golfito_LCP <- subset(golfito, golfito$ID %in% golfito_LCP)
-#writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top5/golfito_LCP_top5.shp', overwrite=T)
+writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top5/golfito_LCP_top5.shp', overwrite=T)
 #writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top3/golfito_LCP_top3.shp', overwrite=T)
 #writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top1/golfito_LCP_top1.shp', overwrite=T)
 
@@ -129,7 +130,7 @@ osa_LCP <- as.data.frame(osa) %>% group_by(cost) %>% slice(1:npaths)
 osa_LCP <- osa_LCP[c(1:npaths),]
 osa_LCP <- osa_LCP$ID
 osa_LCP <- subset(osa, osa$ID %in% osa_LCP)
-#writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top5/osa_LCP_top5.shp', overwrite=T)
+writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top5/osa_LCP_top5.shp', overwrite=T)
 #writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top3/osa_LCP_top3.shp', overwrite=T)
 #writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top1/osa_LCP_top1.shp', overwrite=T)
 
@@ -139,7 +140,7 @@ pejeperro_LCP <- as.data.frame(pejeperro) %>% group_by(cost) %>% slice(1:npaths)
 pejeperro_LCP <- pejeperro_LCP[c(1:npaths),]
 pejeperro_LCP <- pejeperro_LCP$ID
 pejeperro_LCP <- subset(pejeperro, pejeperro$ID %in% pejeperro_LCP)
-#writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top5/pejeperro_LCP_top5.shp', overwrite=T)
+writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top5/pejeperro_LCP_top5.shp', overwrite=T)
 #writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top3/pejeperro_LCP_top3.shp', overwrite=T)
 #writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top1/pejeperro_LCP_top1.shp', overwrite=T)
 
@@ -149,7 +150,7 @@ terraba_sierpe2_LCP <- as.data.frame(terraba_sierpe2) %>% group_by(cost) %>% sli
 terraba_sierpe2_LCP <- terraba_sierpe2_LCP[c(1:npaths),]
 terraba_sierpe2_LCP <- terraba_sierpe2_LCP$ID
 terraba_sierpe2_LCP <- subset(terraba_sierpe2, terraba_sierpe2$ID %in% terraba_sierpe2_LCP)
-#writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe2_LCP_top5.shp', overwrite=T)
+writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe2_LCP_top5.shp', overwrite=T)
 #writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe2_LCP_top3.shp', overwrite=T)
 #writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe2_LCP_top1.shp', overwrite=T)
 
@@ -251,11 +252,11 @@ hist(top5_LCP_density)
 plot(AmistOsa, main='Corridor density (all origins)')
 plot(top5_LCP_density, add=T)
 summary(top5_LCP_density)
-hist(top5_LCP_density, breaks=seq(0,25,1), main='Corridor density (all origins)',
+hist(top5_LCP_density, breaks=seq(0,32,1), main='Corridor density (all origins)',
      xlab='Density')
 
 # Used QGIS "Merge vector layers" to combine LCPs
-# merged_LCPs <- terra::vect("Data/spatial/LeastCostPaths/AmistOsa_LCPs_merged.shp")
+merged_LCPs <- terra::vect("Data/spatial/LeastCostPaths/AmistOsa_LCPs_merged.shp")
 # merged_LCPs$layer <- ifelse(merged_LCPs$layer=='Piedras Blancas', 'Piedras_Blancas', merged_LCPs$layer)
 # merged_LCPs$layer <- ifelse(merged_LCPs$layer=='Golfito_Start_5', 'Golfito', merged_LCPs$layer)
 # merged_LCPs$layer <- ifelse(merged_LCPs$layer=='Golfo_Dulce_Start_4', 'Golfo_Dulce', merged_LCPs$layer)
@@ -265,13 +266,14 @@ hist(top5_LCP_density, breaks=seq(0,25,1), main='Corridor density (all origins)'
 # merged_LCPs$layer <- ifelse(merged_LCPs$layer=='Pejeperro_Start_7', 'Pejeperro', merged_LCPs$layer)
 LCP_IDs <- paste0(top5_LCP$layer, '_',seq(1,nrow(corcovado),1)) 
 top5_LCP$LCP_ID <- LCP_IDs
-#terra::writeVector(merged_LCPs, filename='Data/spatial/LeastCostPaths/AmistOsa_LCPs_merged_wID.shp')
+merged_LCPs$LCP_ID <- LCP_IDs
+#terra::writeVector(merged_LCPs, filename='Data/spatial/LeastCostPaths/AmistOsa_LCPs_merged_wID.shp', overwrite=T)
 
 #merged_LCPs_buff <- terra::buffer(merged_LCPs, buff_dist) #crashes R!
-# merged_LCPs_sf <- sf::st_as_sf(merged_LCPs)
-# merged_LCPs_sf_buff <- st_buffer(merged_LCPs_sf, dist=buff_dist)
-# merged_LCPs_buff <- terra::vect(merged_LCPs_sf_buff)
-#terra::writeVector(merged_LCPs_buff, filename='Data/spatial/LeastCostPaths/AmistOsa_LCPs_merged_wID_1000mbuff.shp')
+merged_LCPs_sf <- sf::st_as_sf(merged_LCPs)
+merged_LCPs_sf_buff <- st_buffer(merged_LCPs_sf, dist=buff_dist)
+merged_LCPs_buff <- terra::vect(merged_LCPs_sf_buff)
+#terra::writeVector(merged_LCPs_buff, filename='Data/spatial/LeastCostPaths/AmistOsa_LCPs_merged_wID_1000mbuff.shp', overwrite=T)
 
 top5_LCP_sf <- sf::st_as_sf(top5_LCP)
 top5_LCP_sf_buff <- st_buffer(top5_LCP_sf, dist=buff_dist)
@@ -418,9 +420,9 @@ summary(LCP_ag_patches_summary)
 hist(LCP_ag_patches_summary$nAgPatches, main='ag patches crossed')
 
 ## Percent ag 
-agmat <- c(0,1,NA,
-           2,3,1,
-           4,99,NA)
+agmat <- c(0,0,1,
+         2,3,1,
+         4,99,NA)
 agmat <- matrix(agmat, ncol=3, byrow=T)
 LULC_ag <- terra::classify(LULC, agmat, right=NA)
 plot(LULC_ag)
@@ -431,6 +433,8 @@ LCP_ag$LCP_areasqkm <- LCP_area
 LCP_ag$Ag_areasqkm <- LCP_ag$AgCells/10000 #(cell=100sqm, 1sqkm = 1000000 sqm, so divide number of cells by 10000 to get area in sq km)
 LCP_ag$pct_ag <- (LCP_ag$Ag_areasqkm/LCP_ag$LCP_areasqkm)*100
 LCP_ag$LCP_ID <- top5_LCP_buff$LCP_ID
+hist(LCP_ag$Ag_areasqkm)
+hist(LCP_ag$pct_ag)
 
 ## Percent forest 
 forestmat <- c(0,3,NA,
@@ -446,13 +450,14 @@ LCP_forest$LCP_areasqkm <- LCP_area
 LCP_forest$Forest_areasqkm <- LCP_forest$ForestCells/10000 
 LCP_forest$pct_forest <- (LCP_forest$Forest_areasqkm/LCP_forest$LCP_areasqkm)*100
 LCP_forest$LCP_ID <- top5_LCP_buff$LCP_ID
+hist(LCP_forest$pct_forest)
 
 ### However, many corridors overlap for significant portions
 # Therefore, maybe it makes more sense to dissolve them
 # But for the top 5, just results in one contiguous line
 top5_LCP_dissolved <- terra::aggregate(top5_LCP, dissolve=T)
 #top5_LCP_dissolved_buff <- terra::buffer(top5_LCP_dissolved, buff_dist)
-#writeVector(top5_LCP_dissolved, filename='Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5_dissolved.shp')
+#writeVector(top5_LCP_dissolved, filename='Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5_dissolved.shp', overwrite=T)
 
 plot(AmistOsa)
 plot(top5_LCP_dissolved, add=T, col='red')
@@ -640,7 +645,7 @@ biomass_plot <-ggplot(LCP_export_double, aes(x=Start, y=Biomass_mean, fill=Start
   ggtitle('C) Forest biomass (mean)')
 biomass_plot
 
-# note trimmed axis removed one large data point
+# note trimmed axis
 # elevation_plot <-ggplot(LCP_export_double, aes(x=Start, y=elevation_range, fill=Start)) +
 #   geom_boxplot()+
 #   theme_classic()+
