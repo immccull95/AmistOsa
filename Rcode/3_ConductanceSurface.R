@@ -1,6 +1,6 @@
 ################## AmistOsa landscape conductance surface #########################
 # Date: 10-3-23
-# updated: 11-27-23; treating low veg as ag
+# updated: 11-29-23; rerunning with canopy height modifier
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -18,8 +18,11 @@ AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 #AmistOsa_lulc_Yana_rast <- terra::rast('Data/spatial/LULC/AmistOsa_lulc_Yana_rast.tif')
 AmistOsa_lulc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_Yana_noUNCL_wRoads.tif")
 
-# Biomass
-biomass <- terra::rast("Data/spatial/biomass/biomass_300m_31971_AmistOsa.tif")
+# Biomass (300 m res)
+#biomass <- terra::rast("Data/spatial/biomass/biomass_300m_31971_AmistOsa.tif")
+
+# Canopy height (10 m res)
+canopyheight <- terra::rast("Data/spatial/CanopyHeight/AmistOsa_CanopyHeight.tif")
 
 #### Main program ####
 freq(AmistOsa_lulc)
@@ -65,23 +68,29 @@ plot(LULC_RK, col=pal(5))
 #writeRaster(LULC_RK, filename='Data/spatial/LULC/AmistOsa_LULC_conductance_new.tif')
 
 # create biomass modifier
-biomass_clamped <- terra::clamp(biomass, upper=100, values=T)
-plot(biomass)
-plot(biomass_clamped)
-biomass_modifier <- biomass/100
-plot(biomass_modifier)
+# biomass_clamped <- terra::clamp(biomass, upper=100, values=T)
+# plot(biomass)
+# plot(biomass_clamped)
+# biomass_modifier <- biomass/100
+# plot(biomass_modifier)
+
+# create canopy height modifier
+# already clamped to max of 30m
+plot(canopyheight)
+canopyheight_modifier <- canopyheight/30
+plot(canopyheight_modifier)
 
 # mask out non-forest and apply biomass modifier
-just_forest <- terra::ifel(AmistOsa_lulc %in% c(4,5), 1, NA)
+just_forest <- terra::ifel(AmistOsa_lulc %in% c(4,5), 1, NA) #including riparian
 plot(just_forest)
 
 # match the resolutions
-biomass_modifier <-  resample(biomass_modifier, just_forest)
-plot(biomass_modifier)
+canopyheight_modifier <- terra::resample(canopyheight_modifier, just_forest)
+plot(canopyheight_modifier)
 plot(just_forest,add=T)
 
 # keep non-forest areas the same too!                      
-final_modifier <- terra::mask(biomass_modifier, just_forest) #now biomass modifier lines up with forested areas only
+final_modifier <- terra::mask(canopyheight_modifier, just_forest) #now modifier lines up with forested areas only
 # keep non-forest as they are -> 1 (as we ultimately take the product)
 final_modifier <- terra::subst(final_modifier, NA, 1)
 
@@ -89,6 +98,7 @@ final_modifier <- terra::subst(final_modifier, NA, 1)
 conductance_final <- LULC_RK * final_modifier
 plot(conductance_final)
 #writeRaster(conductance_final, filename='Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif')
+#writeRaster(conductance_final, filename='Data/spatial/LULC/AmistOsa_LULC_conductance_canopyheightmod.tif')
 
 # compare modified and unmodified conductance surfaces
 summary(conductance_final)
@@ -96,4 +106,4 @@ summary(LULC_RK)
 
 par(mfrow=c(1,2))
 hist(LULC_RK, main='Unmodified conductance', xlab='Conductance')
-hist(conductance_final, main='Biomass modified conductance', xlab='Conductance')
+hist(conductance_final, main='Canopy height modified conductance', xlab='Conductance')

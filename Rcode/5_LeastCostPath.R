@@ -1,6 +1,6 @@
 ######################## AmistOsa least cost paths ################################
 # Date: 10-30-23
-# updated: 11-27-23; rerun with new conductance surface
+# updated: 11-30-23; rerun with new canopy height-adjusted conductance surface
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -19,7 +19,8 @@ AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 
 # Conductance surface (lc: land cover)
 #lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif")
-lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif")
+#lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif")
+lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_canopyheightmod.tif")
 
 # All start and end polygons
 start_all <- vect("Data/spatial/nodes/start_nodes_AmistOsa.shp")
@@ -87,7 +88,7 @@ for (i in 1:nrow(start_points)){
   csv <- as.data.frame(lcps)
   csv$START_CODE <- start_sub$START_CODE
   csv$END_CODE <- end_points$END_CODE
-  write.csv(csv, file=filename_csv)
+  write.csv(csv, file=filename_csv, row.names=F)
   
   start_sub = NULL
   lcps = NULL

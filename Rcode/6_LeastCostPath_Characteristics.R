@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 11-28-23; update multi-panel figure with new LCPs
+# updated: 12-4-23; update with new canopy height adjusted LCPs
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -52,6 +52,13 @@ forest_patches <- terra::vect("Data/spatial/LandscapeStructure/forest_polygons.s
 # Ag patches
 ag_patches <- terra::vect("Data/spatial/LandscapeStructure/ag_polygons.shp")
 
+# Forest canopy height (combined Lang et al. 2023 and Potapov et al. 2020 for filling gaps)
+canopy <- terra::rast("Data/spatial/CanopyHeight/AmistOsa_CanopyHeight.tif")
+
+# SINAC biological corridors
+sinacbc <- terra::vect("Data/spatial/protected_areas/BiologicalCorridors.shp")
+sinacbc <- terra::project(sinacbc, "EPSG:31971")
+
 # If already run, top 3 and top 5 least cost paths from each lowland protected area to La Amistad
 top1_LCP <- terra::vect("Data/spatial/LeastCostPaths/top1/AmistOsa_LCPs_merged_top1.shp")
 top3_LCP <- terra::vect("Data/spatial/LeastCostPaths/top3/AmistOsa_LCPs_merged_top3.shp")
@@ -80,7 +87,7 @@ corcovado_LCP <- as.data.frame(corcovado) %>% group_by(cost) %>% slice(1:npaths)
 corcovado_LCP <- corcovado_LCP[c(1:npaths),]
 corcovado_LCP <- corcovado_LCP$ID
 corcovado_LCP <- subset(corcovado, corcovado$ID %in% corcovado_LCP)
-writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top5/corcovado_LCP_top5.shp', overwrite=T)
+#writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top5/corcovado_LCP_top5.shp', overwrite=T)
 #writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top3/corcovado_LCP_top3.shp', overwrite=T)
 #writeVector(corcovado_LCP, filename='Data/spatial/LeastCostPaths/top1/corcovado_LCP_top1.shp', overwrite=T)
 
@@ -90,7 +97,7 @@ piedras_blancas_LCP <- as.data.frame(piedras_blancas) %>% group_by(cost) %>% sli
 piedras_blancas_LCP <- piedras_blancas_LCP[c(1:npaths),]
 piedras_blancas_LCP <- piedras_blancas_LCP$ID
 piedras_blancas_LCP <- subset(piedras_blancas, piedras_blancas$ID %in% piedras_blancas_LCP)
-writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top5/piedras_blancas_LCP_top5.shp', overwrite=T)
+#writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top5/piedras_blancas_LCP_top5.shp', overwrite=T)
 #writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top3/piedras_blancas_LCP_top3.shp', overwrite=T)
 #writeVector(piedras_blancas_LCP, filename='Data/spatial/LeastCostPaths/top1/piedras_blancas_LCP_top1.shp', overwrite=T)
 
@@ -100,7 +107,7 @@ terraba_sierpe1_LCP <- as.data.frame(terraba_sierpe1) %>% group_by(cost) %>% sli
 terraba_sierpe1_LCP <- terraba_sierpe1_LCP[c(1:npaths),]
 terraba_sierpe1_LCP <- terraba_sierpe1_LCP$ID
 terraba_sierpe1_LCP <- subset(terraba_sierpe1, terraba_sierpe1$ID %in% terraba_sierpe1_LCP)
-writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe1_LCP_top5.shp', overwrite=T)
+#writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe1_LCP_top5.shp', overwrite=T)
 #writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe1_LCP_top3.shp', overwrite=T)
 #writeVector(terraba_sierpe1_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe1_LCP_top1.shp', overwrite=T)
 
@@ -110,7 +117,7 @@ golfo_dulce_LCP <- as.data.frame(golfo_dulce) %>% group_by(cost) %>% slice(1:npa
 golfo_dulce_LCP <- golfo_dulce_LCP[c(1:npaths),]
 golfo_dulce_LCP <- golfo_dulce_LCP$ID
 golfo_dulce_LCP <- subset(golfo_dulce, golfo_dulce$ID %in% golfo_dulce_LCP)
-writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top5/golfo_dulce_LCP_top5.shp', overwrite=T)
+#writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top5/golfo_dulce_LCP_top5.shp', overwrite=T)
 #writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top3/golfo_dulce_LCP_top3.shp', overwrite=T)
 #writeVector(golfo_dulce_LCP, filename='Data/spatial/LeastCostPaths/top1/golfo_dulce_LCP_top1.shp', overwrite=T)
 
@@ -120,7 +127,7 @@ golfito_LCP <- as.data.frame(golfito) %>% group_by(cost) %>% slice(1:npaths)
 golfito_LCP <- golfito_LCP[c(1:npaths),]
 golfito_LCP <- golfito_LCP$ID
 golfito_LCP <- subset(golfito, golfito$ID %in% golfito_LCP)
-writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top5/golfito_LCP_top5.shp', overwrite=T)
+#writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top5/golfito_LCP_top5.shp', overwrite=T)
 #writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top3/golfito_LCP_top3.shp', overwrite=T)
 #writeVector(golfito_LCP, filename='Data/spatial/LeastCostPaths/top1/golfito_LCP_top1.shp', overwrite=T)
 
@@ -130,7 +137,7 @@ osa_LCP <- as.data.frame(osa) %>% group_by(cost) %>% slice(1:npaths)
 osa_LCP <- osa_LCP[c(1:npaths),]
 osa_LCP <- osa_LCP$ID
 osa_LCP <- subset(osa, osa$ID %in% osa_LCP)
-writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top5/osa_LCP_top5.shp', overwrite=T)
+#writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top5/osa_LCP_top5.shp', overwrite=T)
 #writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top3/osa_LCP_top3.shp', overwrite=T)
 #writeVector(osa_LCP, filename='Data/spatial/LeastCostPaths/top1/osa_LCP_top1.shp', overwrite=T)
 
@@ -140,7 +147,7 @@ pejeperro_LCP <- as.data.frame(pejeperro) %>% group_by(cost) %>% slice(1:npaths)
 pejeperro_LCP <- pejeperro_LCP[c(1:npaths),]
 pejeperro_LCP <- pejeperro_LCP$ID
 pejeperro_LCP <- subset(pejeperro, pejeperro$ID %in% pejeperro_LCP)
-writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top5/pejeperro_LCP_top5.shp', overwrite=T)
+#writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top5/pejeperro_LCP_top5.shp', overwrite=T)
 #writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top3/pejeperro_LCP_top3.shp', overwrite=T)
 #writeVector(pejeperro_LCP, filename='Data/spatial/LeastCostPaths/top1/pejeperro_LCP_top1.shp', overwrite=T)
 
@@ -150,7 +157,7 @@ terraba_sierpe2_LCP <- as.data.frame(terraba_sierpe2) %>% group_by(cost) %>% sli
 terraba_sierpe2_LCP <- terraba_sierpe2_LCP[c(1:npaths),]
 terraba_sierpe2_LCP <- terraba_sierpe2_LCP$ID
 terraba_sierpe2_LCP <- subset(terraba_sierpe2, terraba_sierpe2$ID %in% terraba_sierpe2_LCP)
-writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe2_LCP_top5.shp', overwrite=T)
+#writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top5/terraba_sierpe2_LCP_top5.shp', overwrite=T)
 #writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top3/terraba_sierpe2_LCP_top3.shp', overwrite=T)
 #writeVector(terraba_sierpe2_LCP, filename='Data/spatial/LeastCostPaths/top1/terraba_sierpe2_LCP_top1.shp', overwrite=T)
 
@@ -297,6 +304,20 @@ LCP_biomass$LCP_ID <- top5_LCP_buff$LCP_ID
 summary(LCP_biomass)
 hist(LCP_biomass$Biomass_mean, main='Mean forest biomass', xlab='Mt C')
 
+## Canopy height
+LCP_canopy_mean <- terra::extract(canopy, top5_LCP_buff, fun='mean', na.rm=T)
+LCP_canopy_min <- terra::extract(canopy, top5_LCP_buff, fun='min', na.rm=T)
+LCP_canopy_max <- terra::extract(canopy, top5_LCP_buff, fun='max', na.rm=T)
+LCP_canopy <- cbind.data.frame(LCP_canopy_mean[,2], LCP_canopy_min[,2], LCP_canopy_max[,2])
+colnames(LCP_canopy) <- c('canopy_mean','canopy_min','canopy_max')
+LCP_canopy$canopy_range <- LCP_canopy$canopy_max - LCP_canopy$canopy_min
+LCP_canopy$Origin <- top5_LCP_buff$layer
+LCP_canopy$Cost <- top5_LCP_buff$cost
+LCP_canopy$LCP_ID <- top5_LCP_buff$LCP_ID
+
+summary(LCP_canopy)
+hist(LCP_canopy$canopy_mean, main='Mean forest canopy height', xlab='m')
+
 ## Terrain (should not use buffers?)
 LCP_elevation_mean <- terra::extract(DEM, top5_LCP_buff, fun='mean', na.rm=T)
 LCP_elevation_min <- terra::extract(DEM, top5_LCP_buff, fun='min', na.rm=T)
@@ -361,6 +382,48 @@ LCP_protection_dissolved_df$LCP_areasqkm <- LCP_area
 LCP_protection_dissolved_df$pct_protected <- (LCP_protection_dissolved_df$PAareasqkm/LCP_protection_dissolved_df$LCP_areasqkm)*100
 summary(LCP_protection_dissolved_df)
 hist(LCP_protection_dissolved_df$pct_protected, main='LCP protection', xlab='Percentage')
+
+## LCP overlap with SINAC Biological Corridors
+LCP_sinacbc <- terra::intersect(top5_LCP_buff, sinacbc)
+LCP_sinacbc_df <- as.data.frame(LCP_sinacbc)
+
+plot(AmistOsa)
+plot(LCP_sinacbc, add=T, col='red')
+
+# Number of BCs overlapping with each LCP
+LCP_sinacbc_count <- LCP_sinacbc_df[,c('LCP_ID','cost')] %>% #was throwing error that some values were duplicated, but these were columns we don't care about for this particular calculation anyway
+  dplyr::group_by(LCP_ID) %>%
+  dplyr::summarize(nBC=n()) %>%
+  as.data.frame()
+summary(LCP_sinacbc_count)
+hist(LCP_sinacbc_count$nBC, main='Number of biological corridors', 
+     xlab='Biological corridors', breaks=seq(1,14,1), xlim=c(1,14))
+
+# need to deal with overlapping LCPs within BCs
+sinacbc_dissolved <- terra::aggregate(sinacbc)
+
+plot(AmistOsa)
+plot(sinacbc, add=T, col='dodgerblue')
+plot(sinacbc_dissolved, add=T, col='red')
+
+LCP_sinacbc_dissolved <- terra::intersect(top5_LCP_buff, sinacbc_dissolved)
+LCP_sinacbc_dissolved_area <- terra::expanse(LCP_sinacbc_dissolved, unit='km')
+LCP_sinacbc_dissolved_df <- as.data.frame(LCP_sinacbc_dissolved)
+LCP_sinacbc_dissolved_df$BCareasqkm <- LCP_sinacbc_dissolved_area
+
+plot(AmistOsa)
+plot(sinacbc_dissolved, add=T, col='forestgreen')
+plot(top5_LCP_buff, add=T, col='turquoise')
+plot(LCP_sinacbc_dissolved, add=T, col='gold')
+
+# % sinacbc per LCP
+LCP_area <- terra::expanse(top5_LCP_buff, unit='km')
+
+LCP_sinacbc_dissolved_df$LCP_areasqkm <- LCP_area
+LCP_sinacbc_dissolved_df$pct_sinacbc <- (LCP_sinacbc_dissolved_df$BCareasqkm/LCP_sinacbc_dissolved_df$LCP_areasqkm)*100
+summary(LCP_sinacbc_dissolved_df)
+hist(LCP_sinacbc_dissolved_df$pct_sinacbc, main='LCP in Biological Corridors', xlab='Percentage')
+
 
 ## Road crossings
 LCP_roads <- terra::intersect(top5_LCP_buff, roads)
@@ -577,7 +640,8 @@ for (i in 1:nrow(top5_LCP)){
 corridor_density_df <- do.call(rbind.data.frame, density_list)
 
 ### merge and export output
-merger_list <- list(LCP_biomass, LCP_elevation, LCP_slope, LCP_protection_count, LCP_protection_dissolved_df[,c(6,9:12)], 
+merger_list <- list(LCP_biomass, LCP_canopy[,c(1:4,7)], LCP_elevation, LCP_slope, LCP_protection_count, LCP_protection_dissolved_df[,c(6,9:12)], 
+                    LCP_sinacbc_count, LCP_sinacbc_dissolved_df[,c(9,10,12)],
                     LCP_roads_summary, LCP_forest_patches_summary, LCP_ag_patches_summary, LCP_forest[,c(5:6)], LCP_ag[,c(5:6)], 
                     corridor_density_df, LCP_intersecting_corridors, LCP_pct_overlap)
 LCP_export <- Reduce(function(x, y) merge(x, y, all=T), merger_list)
@@ -621,6 +685,19 @@ length_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_length_km, fill=Start
   ggtitle('A) Length')
 length_plot
 
+# not trimmed axis
+elevation_plot <-ggplot(LCP_export_double, aes(x=Start, y=elevation_range, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Elevation gain (m)', limits=c())+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('B) Elevation')
+elevation_plot
+
 pct_protected_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_protected, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
@@ -628,35 +705,70 @@ pct_protected_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_protected, fil
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Protection (%)')+
+  scale_y_continuous(name='Protected area (%)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('B) Protection')
+  ggtitle('C) Protected area (%)')
 pct_protected_plot
 
-biomass_plot <-ggplot(LCP_export_double, aes(x=Start, y=Biomass_mean, fill=Start)) +
+nPA_plot <-ggplot(LCP_export_double, aes(x=Start, y=nPA, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
         axis.text.y=element_text(color='black'),
         legend.position=c('none'))+
   scale_fill_manual(values=plot_colors)+
-  scale_y_continuous(name='Mean biomass (Mt C)')+
+  scale_y_continuous(name='Protected area (count)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('C) Forest biomass (mean)')
-biomass_plot
+  ggtitle('D) Protected area (count)')
+nPA_plot
 
-# note trimmed axis
-# elevation_plot <-ggplot(LCP_export_double, aes(x=Start, y=elevation_range, fill=Start)) +
+pct_sinacbc_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_sinacbc, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='BC overlap (%)')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('E) BC overlap (%)')
+pct_sinacbc_plot
+
+nBC_plot <-ggplot(LCP_export_double, aes(x=Start, y=nBC, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='BC overlap (count)')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('F) BC overlap (count)')
+nBC_plot
+
+# biomass_plot <-ggplot(LCP_export_double, aes(x=Start, y=Biomass_mean, fill=Start)) +
 #   geom_boxplot()+
 #   theme_classic()+
 #   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
 #         axis.text.y=element_text(color='black'),
 #         legend.position=c('none'))+
 #   scale_fill_manual(values=plot_colors)+
-#   scale_y_continuous(name='Elevation gain (m)', limits=c(1400,2000))+
+#   scale_y_continuous(name='Mean biomass (Mt C)')+
 #   scale_x_discrete(name='', labels=site_names)+
-#   ggtitle('C) Elevation')
-# elevation_plot
+#   ggtitle('C) Forest biomass (mean)')
+# biomass_plot
+
+canopy_plot <-ggplot(LCP_export_double, aes(x=Start, y=canopy_mean, fill=Start)) +
+  geom_boxplot()+
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
+        axis.text.y=element_text(color='black'),
+        legend.position=c('none'))+
+  scale_fill_manual(values=plot_colors)+
+  scale_y_continuous(name='Mean canopy height (m)')+
+  scale_x_discrete(name='', labels=site_names)+
+  ggtitle('G) Forest canopy height')
+canopy_plot
 
 # slope_plot <-ggplot(LCP_export_double, aes(x=Start, y=slope_mean, fill=Start)) +
 #   geom_boxplot()+
@@ -670,18 +782,6 @@ biomass_plot
 #   ggtitle('Slope')
 # slope_plot
 
-# nPA_plot <-ggplot(LCP_export_double, aes(x=Start, y=nPA, fill=Start)) +
-#   geom_boxplot()+
-#   theme_classic()+
-#   theme(axis.text.x=element_text(color='black', size=8, angle=70, hjust=1),
-#         axis.text.y=element_text(color='black'),
-#         legend.position=c('none'))+
-#   scale_fill_manual(values=plot_colors)+
-#   scale_y_continuous(name='Protected areas')+
-#   scale_x_discrete(name='', labels=site_names)+
-#   ggtitle('Number of protected areas')
-# nPA_plot
-
 forest_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_forest, fill=Start)) +
   geom_boxplot()+
   theme_classic()+
@@ -691,7 +791,7 @@ forest_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_forest, fill=Star
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Forest (%)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('D) Forest cover')
+  ggtitle('H) Forest cover')
 forest_pct_plot
 
 forest_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nForestPatches, fill=Start)) +
@@ -703,7 +803,7 @@ forest_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nForestPatches, f
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Patch crossings')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('E) Forest patches')
+  ggtitle('I) Forest patches')
 forest_patches_plot
 
 #LCP_export_double$nForestPatches_perkm <- LCP_export_double$nForestPatches/LCP_export_double$LCP_length_km
@@ -716,7 +816,7 @@ forest_patches_perkm_plot <-ggplot(LCP_export_double, aes(x=Start, y=nForestPatc
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Patch crossings/km')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('F) Forest patches/km')
+  ggtitle('X) Forest patches/km')
 forest_patches_perkm_plot
 
 ag_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_ag, fill=Start)) +
@@ -728,7 +828,7 @@ ag_pct_plot <-ggplot(LCP_export_double, aes(x=Start, y=pct_ag, fill=Start)) +
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Agriculture (%)')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('G) Agriculture cover')
+  ggtitle('J) Agriculture cover')
 ag_pct_plot
 
 ag_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nAgPatches, fill=Start)) +
@@ -740,7 +840,7 @@ ag_patches_plot <-ggplot(LCP_export_double, aes(x=Start, y=nAgPatches, fill=Star
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Patch crossings')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('H) Agriculture patches')
+  ggtitle('K) Agriculture patches')
 ag_patches_plot
 
 ag_patches_perkm_plot <-ggplot(LCP_export_double, aes(x=Start, y=nAgPatches_perkm, fill=Start)) +
@@ -752,7 +852,7 @@ ag_patches_perkm_plot <-ggplot(LCP_export_double, aes(x=Start, y=nAgPatches_perk
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Patch crossings/km')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('I) Agriculture patches/km')
+  ggtitle('X) Agriculture patches/km')
 ag_patches_perkm_plot
 
 # pct_unique_plot <-ggplot(LCP_export_double, aes(x=Start, y=LCP_pct_unique, fill=Start)) +
@@ -776,7 +876,7 @@ roads_plot <-ggplot(LCP_export_double, aes(x=Start, y=nTotalRoads, fill=Start)) 
   scale_fill_manual(values=plot_colors)+
   scale_y_continuous(name='Road crossings')+
   scale_x_discrete(name='', labels=site_names)+
-  ggtitle('J) Road crossings')
+  ggtitle('L) Road crossings')
 roads_plot
 
 #LCP_export_double$nTotalRoads_perkm <- LCP_export_double$nTotalRoads/LCP_export_double$LCP_length_km
@@ -829,12 +929,94 @@ LCP_density_plot
 # LCP_intersection_plot
 
 jpeg(filename='Figures/AmistOsa_LCP_characteristics.jpeg', height=10, width=8, units='in', res=300)
-grid.arrange(length_plot, pct_protected_plot, biomass_plot,
-             forest_pct_plot, forest_patches_plot, forest_patches_perkm_plot,
-             ag_pct_plot, ag_patches_plot, ag_patches_perkm_plot,
-             roads_plot, roads_perkm_plot, LCP_density_plot,
+grid.arrange(length_plot, elevation_plot, pct_protected_plot, 
+             nPA_plot, pct_sinacbc_plot, nBC_plot, 
+             canopy_plot, forest_pct_plot, forest_patches_plot, 
+             ag_pct_plot, ag_patches_plot, roads_plot,
              nrow=4)
 dev.off()
+
+#### create summary table of LCP characteristics by site ####
+big_table <- LCP_export %>%
+  group_by(Start) %>%
+  summarize(minLCP_length_km=min(LCP_length_km, na.rm=T),
+            medianLCP_length_km=median(LCP_length_km, na.rm=T),
+            maxLCP_length_km=max(LCP_length_km, na.rm=T),
+            
+            minelevation_range=min(elevation_range, na.rm=T),
+            medianelevation_range=median(elevation_range, na.rm=T),
+            maxelevation_range=max(elevation_range, na.rm=T),
+            
+            minpct_protected=min(pct_protected, na.rm=T),
+            medianpct_protected=median(pct_protected, na.rm=T),
+            maxpct_protected=max(pct_protected, na.rm=T),
+            
+            minnPA=min(nPA, na.rm=T),
+            mediannPA=median(nPA, na.rm=T),
+            maxnPA=max(nPA, na.rm=T),
+            
+            minpct_sinacbc=min(pct_sinacbc, na.rm=T),
+            medianpct_sinacbc=median(pct_sinacbc, na.rm=T),
+            maxpct_sinacbc=max(pct_sinacbc, na.rm=T),
+            
+            minnBC=min(nBC, na.rm=T),
+            mediannBC=median(nBC, na.rm=T),
+            maxnBC=max(nBC, na.rm=T),
+            
+            mincanopy_mean=min(canopy_mean, na.rm=T),
+            mediancanopy_mean=median(canopy_mean, na.rm=T),
+            maxcanopy_mean=max(canopy_mean, na.rm=T),
+            
+            minpct_forest=min(pct_forest, na.rm=T),
+            medianpct_forest=median(pct_forest, na.rm=T),
+            maxpct_forest=max(pct_forest, na.rm=T),
+            
+            minnForestPatches=min(nForestPatches, na.rm=T),
+            mediannForestPatches=median(nForestPatches, na.rm=T),
+            maxnForestPatches=max(nForestPatches, na.rm=T),
+            
+            minnForestPatches_perkm=min(nForestPatches_perkm, na.rm=T),
+            mediannForestPatches_perkm=median(nForestPatches_perkm, na.rm=T),
+            maxnForestPatches_perkm=max(nForestPatches_perkm, na.rm=T),
+            
+            minpct_ag=min(pct_ag, na.rm=T),
+            medianpct_ag=median(pct_ag, na.rm=T),
+            maxpct_ag=max(pct_ag, na.rm=T),
+            
+            minnAgPatches=min(nAgPatches, na.rm=T),
+            mediannAgPatches=median(nAgPatches, na.rm=T),
+            maxnAgPatches=max(nAgPatches, na.rm=T),
+            
+            minnAgPatches_perkm=min(nAgPatches_perkm, na.rm=T),
+            mediannAgPatches_perkm=median(nAgPatches_perkm, na.rm=T),
+            maxnAgPatches_perkm=max(nAgPatches_perkm, na.rm=T),
+            
+            minnTotalRoads=min(nTotalRoads, na.rm=T),
+            mediannTotalRoads=median(nTotalRoads, na.rm=T),
+            maxnTotalRoads=max(nTotalRoads, na.rm=T),
+            
+            minnTotalRoads_perkm=min(nTotalRoads_perkm, na.rm=T),
+            mediannTotalRoads_perkm=median(nTotalRoads_perkm, na.rm=T),
+            maxnTotalRoads_perkm=max(nTotalRoads_perkm, na.rm=T)) %>%
+  as.data.frame()
+
+big_table$LCP_length_km <- paste(round(big_table$minLCP_length_km, 0), round(big_table$medianLCP_length_km, 0), round(big_table$maxLCP_length_km, 0), sep=', ')
+big_table$elevation_range <- paste(round(big_table$minelevation_range, 0), round(big_table$medianelevation_range, 0), round(big_table$maxelevation_range, 0), sep=', ')
+big_table$pct_protected <- paste(round(big_table$minpct_protected, 0), round(big_table$medianpct_protected, 0), round(big_table$maxpct_protected, 0), sep=', ')
+big_table$nPA <- paste(round(big_table$minnPA, 0), round(big_table$mediannPA, 0), round(big_table$maxnPA, 0), sep=', ')
+big_table$pct_sinacbc <- paste(round(big_table$minpct_sinacbc, 0), round(big_table$medianpct_sinacbc, 0), round(big_table$maxpct_sinacbc, 0), sep=', ')
+big_table$nBC <- paste(round(big_table$minnBC, 0), round(big_table$mediannBC, 0), round(big_table$maxnBC, 0), sep=', ')
+big_table$canopy_mean <- paste(round(big_table$mincanopy_mean, 0), round(big_table$mediancanopy_mean, 0), round(big_table$maxcanopy_mean, 0), sep=', ')
+big_table$pct_forest <- paste(round(big_table$minpct_forest, 0), round(big_table$medianpct_forest, 0), round(big_table$maxpct_forest, 0), sep=', ')
+big_table$nForestPatches <- paste(round(big_table$minnForestPatches, 0), round(big_table$mediannForestPatches, 0), round(big_table$maxnForestPatches, 0), sep=', ')
+big_table$nForestPatches_perkm <- paste(round(big_table$minnForestPatches_perkm, 0), round(big_table$mediannForestPatches_perkm, 0), round(big_table$maxnForestPatches_perkm, 0), sep=', ')
+big_table$pct_ag <- paste(round(big_table$minpct_ag, 0), round(big_table$medianpct_ag, 0), round(big_table$maxpct_ag, 0), sep=', ')
+big_table$nAgPatches <- paste(round(big_table$minnAgPatches, 0), round(big_table$mediannAgPatches, 0), round(big_table$maxnAgPatches, 0), sep=', ')
+big_table$nAgPatches_perkm <- paste(round(big_table$minnAgPatches_perkm, 0), round(big_table$mediannAgPatches_perkm, 0), round(big_table$maxnAgPatches_perkm, 0), sep=', ')
+big_table$nTotalRoads <- paste(round(big_table$minnTotalRoads, 0), round(big_table$mediannTotalRoads, 0), round(big_table$maxnTotalRoads, 0), sep=', ')
+big_table$nTotalRoads_perkm <- paste(round(big_table$minnTotalRoads_perkm, 0), round(big_table$mediannTotalRoads_perkm, 0), round(big_table$maxnTotalRoads_perkm, 0), sep=', ')
+
+#write.csv(big_table, file='Data/spatial/LeastCostPaths/LCP_top5_characteristics.csv', row.names=F)
 
 #######################################################
 # ends up with many more geometries than started with and creates slivers without attributes

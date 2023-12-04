@@ -1,6 +1,6 @@
 ################# Set up for Circuitscape in Julia ################################
 # Date: 10-26-23
-# updated: 11-28-23; rerun with new conductance surface
+# updated: 11-30-23; rerun with new canopy height-adjusted conductance surface
 # Author: Ian McCullough, immccull@gmail.com, Chris Beirne (chrisbeirne@osaconservation.org)
 ###################################################################################
 
@@ -27,7 +27,8 @@ AmistOsa <- terra::project(AmistOsa, "EPSG:31971")
 
 # Conductance surface (lc: land cover)
 #lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod.tif")
-lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif")
+#lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_biomassmod_new.tif")
+lc <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_canopyheightmod.tif")
 #lc_20 <- terra::aggregate(lc, fact=2)
 
 # All start and end polygons
@@ -185,7 +186,7 @@ plot(end_v, add=T, col='forestgreen')
 stats::quantile(res_cur_mask, probs=seq(0,1,0.1), na.rm=T)
 #plot(res_cur_mask2)
 
-res_cur_mask_80 <- terra::ifel(res_cur_mask >= 0.3431641, 1, NA)
+res_cur_mask_80 <- terra::ifel(res_cur_mask >= 0.3469406, 1, NA)
 plot(res_cur_mask_80)
 #writeRaster(res_cur_mask_80, filename="julia/output/osa_8dir_cgamg_curmap_masked_80thpctNEW.tif", overwrite=T)
 
@@ -213,44 +214,34 @@ start_sf <- sf::st_as_sf(tmp)
 # Leaflet will eventually support terra - but not yet (maybe we need the development version)
 # As a workaround we can save the processed file and load it as a raster
 
-library(raster)
-# Write it
-writeRaster(res_clamp, "osa_example_curmap_CLAMPED.tif", overwrite=T)
-# Read it in as a raster
-res_raster <- raster("osa_example_curmap_CLAMPED.tif")
-# Read in the cost surface too
-cond_ras <- raster("C:/Users/immccull/Documents/circuitscape_tutorial/input/cost_surface_100m.tif")
-
-
-boundary<- st_as_sfc(st_bbox(res_raster))
-
-pal <- colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), c(values(res_raster),15.1),
-                    na.color = "transparent")
-
-
-# p.s this wont work for HUGE rasters
-
-leaflet() %>%
-  addProviderTiles("Esri.WorldImagery", group="Satellite") %>%
-  addProviderTiles("OpenStreetMap", group="OSM") %>%
-  addRasterImage(cond_ras, group="Conductance") %>%
-  addRasterImage(res_raster, group="Current", colors = pal) %>%
-  addPolygons(data=end_sf, fillColor = "red",stroke = F, label=end_sf$NAME, fillOpacity = 1, group="Target area") %>% 
-  addLegend(pal = pal, values = values(res_raster),
-            title = "Current flow") %>%
-  #addPolygons(data=boundary, fillColor = "yellow",stroke = TRUE, color="red",fillOpacity = 0) %>%
-  addLayersControl(
-    baseGroups = c("Satellite","OSM"),
-    overlayGroups = c("Conductance","Current", "Target area"))%>% 
-  hideGroup("Conductance") 
-
-
-
-
-
-
-
-
-
-
-
+# library(raster)
+# # Write it
+# writeRaster(res_clamp, "osa_example_curmap_CLAMPED.tif", overwrite=T)
+# # Read it in as a raster
+# res_raster <- raster("osa_example_curmap_CLAMPED.tif")
+# # Read in the cost surface too
+# cond_ras <- raster("C:/Users/immccull/Documents/circuitscape_tutorial/input/cost_surface_100m.tif")
+# 
+# 
+# boundary<- st_as_sfc(st_bbox(res_raster))
+# 
+# pal <- colorNumeric(c("#0C2C84", "#41B6C4", "#FFFFCC"), c(values(res_raster),15.1),
+#                     na.color = "transparent")
+# 
+# 
+# # p.s this wont work for HUGE rasters
+# 
+# leaflet() %>%
+#   addProviderTiles("Esri.WorldImagery", group="Satellite") %>%
+#   addProviderTiles("OpenStreetMap", group="OSM") %>%
+#   addRasterImage(cond_ras, group="Conductance") %>%
+#   addRasterImage(res_raster, group="Current", colors = pal) %>%
+#   addPolygons(data=end_sf, fillColor = "red",stroke = F, label=end_sf$NAME, fillOpacity = 1, group="Target area") %>% 
+#   addLegend(pal = pal, values = values(res_raster),
+#             title = "Current flow") %>%
+#   #addPolygons(data=boundary, fillColor = "yellow",stroke = TRUE, color="red",fillOpacity = 0) %>%
+#   addLayersControl(
+#     baseGroups = c("Satellite","OSM"),
+#     overlayGroups = c("Conductance","Current", "Target area"))%>% 
+#   hideGroup("Conductance") 
+# 

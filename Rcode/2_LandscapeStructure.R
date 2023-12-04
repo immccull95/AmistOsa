@@ -43,6 +43,8 @@ forest_patch_shape_index <- read.csv("Data/spatial/LandscapeStructure/forest_pat
 forest_nn_patch <- read.csv("Data/spatial/LandscapeStructure/forest_nn_patch.csv")
 forest_patch_cohesion <- read.csv("Data/spatial/LandscapeStructure/forest_patch_cohesion.csv")
 
+ag_patch_area <- read.csv("Data/spatial/LandscapeStructure/ag_patch_area.csv")
+
 #### Main program ####
 # frequencies of LULC types across landscape
 AmistOsa_LULC_pct <- as.data.frame(freq(AmistOsa_lulc_Yana_rast))
@@ -261,7 +263,8 @@ hist(forest_patch_area$areasqkm, xlab='sq km', main='AmistOsa forest patch size 
 forest_patch_area_cv <- lsm_l_area_cv(AmistOsa_forest, directions=8)
 forest_patch_area_cv$value/100 #into sq meters
 
-nrow(subset(forest_patch_area, areasqkm >= 100))
+big_forest <- subset(forest_patch_area, areasqkm >= 100)
+sum(big_forest$areasqkm)/sum(forest_patch_area$areasqkm)
 
 # if take out largest patch
 # forest_patch_area_others <- subset(forest_patch_area, id>1)
@@ -285,9 +288,15 @@ total_core/AmistOsa_areasqkm
 max(forest_patch_core$coreareasqkm)/AmistOsa_areasqkm
 total_edge/AmistOsa_areasqkm
 
+total_core/sum(forest_patch_area$areasqkm)
+total_edge/sum(forest_patch_area$areasqkm)
+
 nrow(subset(forest_patch_core, coreareasqkm >= 100))
 nrow(subset(forest_patch_core, value > 0)) #number of patches with some core
 nrow(subset(forest_patch_core, value > 0))/nrow(forest_patch_core) #percentage of patches with some core
+
+somecore <- subset(forest_patch_core, value > 0)
+summary(somecore)
 
 # not that useful: can use nrow
 #x <- lsm_p_ncore(AmistOsa_forest, directions=8, edge_depth=10)
