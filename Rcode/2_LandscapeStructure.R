@@ -1,6 +1,6 @@
 ################## AmistOsa landscape structure analysis ##########################
 # Date: 9-26-23
-# updated: 11-28-23; redo ag patches with low vegetation
+# updated: 12-5-23; redo ag patches excluding protected areas
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -44,6 +44,9 @@ forest_nn_patch <- read.csv("Data/spatial/LandscapeStructure/forest_nn_patch.csv
 forest_patch_cohesion <- read.csv("Data/spatial/LandscapeStructure/forest_patch_cohesion.csv")
 
 ag_patch_area <- read.csv("Data/spatial/LandscapeStructure/ag_patch_area.csv")
+
+# Protected areas
+protected_areas <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa.shp")
 
 #### Main program ####
 # frequencies of LULC types across landscape
@@ -241,9 +244,16 @@ rclmat_ag <- matrix(mag, ncol=3, byrow=T)
 AmistOsa_ag <- terra::classify(intermed_mosaic_roads, rclmat_ag, right=NA)
 plot(AmistOsa_ag)
 freq(AmistOsa_ag)
-#writeRaster(AmistOsa_ag, filename='Data/spatial/LandscapeStructure/AmistOsa_ag.tif', overwrite=T)
 
-AmistOsa_ag_patches <- terra::patches(AmistOsa_ag, directions=8, filename='Data/spatial/LandscapeStructure/AmistOsa_ag_patches.tif', overwrite=T)
+# mask out areas in protected areas; unlikely actually to be ag
+pa_mask <- terra::rasterize(protected_areas, intermed_mosaic_roads)
+plot(pa_mask)
+AmistOsa_ag_masked <- terra::mask(AmistOsa_ag, pa_mask, inverse=T)
+plot(AmistOsa)
+plot(AmistOsa_ag_masked, add=T, col='red')
+#writeRaster(AmistOsa_ag_masked, filename='Data/spatial/LandscapeStructure/AmistOsa_ag.tif', overwrite=T)
+
+AmistOsa_ag_patches <- terra::patches(AmistOsa_ag_masked, directions=8, filename='Data/spatial/LandscapeStructure/AmistOsa_ag_patches.tif', overwrite=T)
 plot(AmistOsa_ag_patches)
 
 #### Commence landscape structure analysis ####
@@ -261,7 +271,7 @@ hist(forest_patch_area$areasqkm, xlab='sq km', main='AmistOsa forest patch size 
 #write.csv(forest_patch_area, file='Data/spatial/LandscapeStructure/forest_patch_area.csv', row.names=F)
 
 forest_patch_area_cv <- lsm_l_area_cv(AmistOsa_forest, directions=8)
-forest_patch_area_cv$value/100 #into sq meters
+forest_patch_area_cv$value/1000000 #into sq km
 
 big_forest <- subset(forest_patch_area, areasqkm >= 100)
 sum(big_forest$areasqkm)/sum(forest_patch_area$areasqkm)
@@ -302,7 +312,7 @@ summary(somecore)
 #x <- lsm_p_ncore(AmistOsa_forest, directions=8, edge_depth=10)
 
 forest_patch_core_cv <- lsm_l_core_cv(AmistOsa_forest, directions=8, edge_depth = 10)
-forest_patch_core_cv$value/100 #into sq km
+forest_patch_core_cv$value/1000000 #into sq km
 
 # what if modify edge depth?
 # forest_patch_core5 <- lsm_p_core(AmistOsa_forest, directions=8, edge_depth=5)
@@ -378,8 +388,8 @@ show_cores(AmistOsa_forest, directions=8, class='global', labels=F, edge_depth=1
 # takes many hours; don't bother
 #number_ag_patches <- lsm_l_np(AmistOsa_ag_patches, directions=8)
 
-## forest patch area (output in hectares)
-ag_patch_area <- lsm_p_area(AmistOsa_ag, directions=8)
+## patch area (output in hectares)
+ag_patch_area <- lsm_p_area(AmistOsa_ag_masked, directions=8)
 ag_patch_area$areasqkm <- ag_patch_area$value/100
 summary(ag_patch_area)
 sum(ag_patch_area$areasqkm)/AmistOsa_areasqkm
@@ -388,11 +398,11 @@ hist(ag_patch_area$areasqkm, xlab='sq km', main='AmistOsa ag patch size distribu
      breaks=seq(0,25,0.1)) #can play around with axis/breaks, but basically makes no difference
 #write.csv(ag_patch_area, file='Data/spatial/LandscapeStructure/ag_patch_area.csv', row.names=F)
 
-ag_patch_area_cv <- lsm_l_area_cv(AmistOsa_ag, directions=8)
-ag_patch_area_cv$value/100 #into sq meters
+ag_patch_area_cv <- lsm_l_area_cv(AmistOsa_ag_masked, directions=8)
+ag_patch_area_cv$value/1000000 #into sqkm
 
 # patch shape index; higher number = more complex shape
-ag_patch_shape_index <- lsm_p_shape(AmistOsa_ag, directions=8)
+ag_patch_shape_index <- lsm_p_shape(AmistOsa_ag_masked, directions=8)
 summary(ag_patch_shape_index)
 hist(ag_patch_shape_index$value, main='Shape index', 
      xlim=c(0,15), breaks=seq(0,15,1), xlab='Shape index')
@@ -401,8 +411,8 @@ hist(ag_patch_shape_index$value, main='Shape index',
 (sd(ag_patch_shape_index$value, na.rm=T)/mean(ag_patch_shape_index$value, na.rm=T))*100
 
 # patch cohesion index (aggregation metric)
-ag_patch_cohesion <- lsm_l_cohesion(AmistOsa_ag, directions=8)
+ag_patch_cohesion <- lsm_l_cohesion(AmistOsa_ag_masked, directions=8)
 
 # edge and patch density
-edge_density <- lsm_l_ed(AmistOsa_ag, directions=8)
-patch_density <- lsm_l_pd(AmistOsa_ag, directions=8)# output is per 100 ha, so per sq km
+edge_density <- lsm_l_ed(AmistOsa_ag_masked, directions=8)
+patch_density <- lsm_l_pd(AmistOsa_ag_masked, directions=8)# output is per 100 ha, so per sq km

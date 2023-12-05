@@ -1018,6 +1018,22 @@ big_table$nTotalRoads_perkm <- paste(round(big_table$minnTotalRoads_perkm, 0), r
 
 #write.csv(big_table, file='Data/spatial/LeastCostPaths/LCP_top5_characteristics.csv', row.names=F)
 
+## playing around with correlations
+cor(LCP_export$pct_forest, LCP_export$canopy_mean, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$pct_forest, LCP_export$pct_ag, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$nForestPatches, LCP_export$nAgPatches, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$pct_forest, LCP_export$nForestPatches, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$pct_forest, LCP_export$nForestPatches_perkm, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$pct_ag, LCP_export$nTotalRoads_perkm, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$pct_ag, LCP_export$nTotalRoads, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$nAgPatches_perkm, LCP_export$nTotalRoads_perkm, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$nAgPatches, LCP_export$nTotalRoads_perkm, use='pairwise.complete.obs', method='spearman')
+
+cor(LCP_export$pct_protected, LCP_export$pct_sinacbc, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$pct_protected, LCP_export$pct_forest, use='pairwise.complete.obs', method='spearman')
+cor(LCP_export$pct_protected, LCP_export$canopy_mean, use='pairwise.complete.obs', method='spearman')
+
+
 #######################################################
 # ends up with many more geometries than started with and creates slivers without attributes
 # union on polylines just combines datasets into list (not what we want)
