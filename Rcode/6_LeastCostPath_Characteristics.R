@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 12-4-23; update with new canopy height adjusted LCPs
+# updated: 12-6-23; get forest/ag patch areas within LCPs
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -461,22 +461,33 @@ hist(LCP_roads_summary$nSecundaria, main='LCP secondary road crossings', xlab='C
 hist(LCP_roads_summary$nOtherRoads, main='LCP other road crossings', xlab='Crossings')
 
 ## Forest patches crossed
+forest_patches$patch_areasqkm <- terra::expanse(forest_patches, unit='km')
 LCP_forest_patches <- terra::intersect(top5_LCP_buff, forest_patches)
 LCP_forest_patches_df <- as.data.frame(LCP_forest_patches)
-LCP_forest_patches_summary <- LCP_forest_patches_df[,c('LCP_ID','Start')] %>%
+#LCP_forest_patches_df$patch_area <- terra::expanse(LCP_forest_patches, unit='km') #would just give intersecting area, not whole patch area
+LCP_forest_patches_summary <- LCP_forest_patches_df[,c('LCP_ID','Start','patch_areasqkm')] %>%
   dplyr::group_by(LCP_ID) %>%
-  dplyr::summarize(nForestPatches=n()) %>%
+  dplyr::summarize(nForestPatches=n(),
+                   minForestPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianForestPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanForestPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxForestPatchArea=max(patch_areasqkm, na.rm=T)) %>%
   as.data.frame()
 
 summary(LCP_forest_patches_summary)
 hist(LCP_forest_patches_summary$nForestPatches, main='Forest patches crossed')
 
 ## Ag patches crossed
+ag_patches$patch_areasqkm <- terra::expanse(ag_patches, unit='km')
 LCP_ag_patches <- terra::intersect(top5_LCP_buff, ag_patches)
 LCP_ag_patches_df <- as.data.frame(LCP_ag_patches)
-LCP_ag_patches_summary <- LCP_ag_patches_df[,c('LCP_ID','Start')] %>%
+LCP_ag_patches_summary <- LCP_ag_patches_df[,c('LCP_ID','Start','patch_areasqkm')] %>%
   dplyr::group_by(LCP_ID) %>%
-  dplyr::summarize(nAgPatches=n()) %>%
+  dplyr::summarize(nAgPatches=n(),
+                   minAgPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianAgPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanAgPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxAgPatchArea=max(patch_areasqkm, na.rm=T)) %>%
   as.data.frame()
 
 summary(LCP_ag_patches_summary)
@@ -1019,11 +1030,14 @@ big_table$nTotalRoads_perkm <- paste(round(big_table$minnTotalRoads_perkm, 0), r
 #write.csv(big_table, file='Data/spatial/LeastCostPaths/LCP_top5_characteristics.csv', row.names=F)
 
 ## playing around with correlations
-cor(LCP_export$pct_forest, LCP_export$canopy_mean, use='pairwise.complete.obs', method='spearman')
-cor(LCP_export$pct_forest, LCP_export$pct_ag, use='pairwise.complete.obs', method='spearman')
-cor(LCP_export$nForestPatches, LCP_export$nAgPatches, use='pairwise.complete.obs', method='spearman')
-cor(LCP_export$pct_forest, LCP_export$nForestPatches, use='pairwise.complete.obs', method='spearman')
-cor(LCP_export$pct_forest, LCP_export$nForestPatches_perkm, use='pairwise.complete.obs', method='spearman')
+cor.test(LCP_export$pct_forest, LCP_export$canopy_mean, use='pairwise.complete.obs', method='spearman')
+cor.test(LCP_export$pct_forest, LCP_export$pct_ag, use='pairwise.complete.obs', method='spearman')
+cor.test(LCP_export$nForestPatches, LCP_export$nAgPatches, use='pairwise.complete.obs', method='spearman')
+cor.test(LCP_export$pct_forest, LCP_export$nForestPatches, use='pairwise.complete.obs', method='spearman')
+cor.test(LCP_export$pct_forest, LCP_export$nForestPatches_perkm, use='pairwise.complete.obs', method='spearman')
+cor.test(LCP_export$pct_forest, LCP_export$pct_sinacbc, use='pairwise.complete.obs', method='spearman')
+cor.test(LCP_export$pct_protected, LCP_export$pct_sinacbc, use='pairwise.complete.obs', method='spearman')
+
 cor(LCP_export$pct_ag, LCP_export$nTotalRoads_perkm, use='pairwise.complete.obs', method='spearman')
 cor(LCP_export$pct_ag, LCP_export$nTotalRoads, use='pairwise.complete.obs', method='spearman')
 cor(LCP_export$nAgPatches_perkm, LCP_export$nTotalRoads_perkm, use='pairwise.complete.obs', method='spearman')
