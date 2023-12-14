@@ -1,6 +1,6 @@
 ##################### AmistOsa camera traps: data checks ##########################
 # Date: 12-12-23
-# updated:
+# updated: 12-14-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -61,13 +61,23 @@ top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_t
 
 #### Main program ####
 # Preliminary cleanup: images dataset needs placename column
+# remove rows with "remove" in deployment_id name (records slated for removal anyway)
+images <- images[!grepl("(remove)", images$deployment_id),] 
+deployments <- deployments[!grepl("(remove)", deployments$deployment_id),] 
+duplicated(deployments$deployment_id)
+
+#deployments$roww <- seq(1,nrow(deployments), 1)
+# found OCCT06_M103_9112022 as duplicated
+# only keep distinct rows based on deployment_id
+deployments <- deployments %>%
+  dplyr::distinct(deployment_id, .keep_all = TRUE)
+
 # but even this still yields 14 placenames not in both deployment and image datasets
 deployments_placenames <- deployments[,c('deployment_id','placename')]
 
 images <- left_join(images, deployments_placenames, by='deployment_id', relationship='many-to-many')
 sum(is.na(images$placename))
 #missing <- subset(images, is.na(images$placename==T)) #all rows slated for removal
-images <- images[!grepl("(remove)", images$deployment_id),] #remove rows with "remove" in deployment_id (indicating records slated for removal by field team anyway)
 
 # Starting with Ch 5 of Chris' tutorial: https://wildcolab.github.io/Introduction-to-Camera-Trap-Data-Management-and-Analysis-in-R/error-checking.html
 
@@ -87,6 +97,30 @@ deployments[is.na(deployments$days)==T,] %>%
 images$timestamp <- ymd_hms(images$timestamp)
 range(images$timestamp) #check range of timestamps (can't have data from 2024 or 27 yet...these fixed, but data from 2015-2019 may also be errors)
 table(is.na(images$timestamp)) #NA check
+
+## analyze records with suspicious timestamps (2015-2019)
+images$year <- year(images$timestamp)
+hist(images$year)
+
+suspect <- subset(images, year %in% c(2015,2016,2017,2018,2019))
+suspect_sites <- subset(images, deployment_id %in% suspect$deployment_id)
+suspect_sites <- suspect_sites[,c('deployment_id','placename','timestamp','year','common_name')]
+unique(suspect_sites$deployment_id)
+
+# candidates for deletion:
+# OCCT10_M025_28062022, 2019, Animal; not useful anyway
+# OCCT13_M028_1432022: 2 detections of coati in 2018 2 seconds apart, but before start date in deployments
+# OCCT13_M028_27062022: bunch of sightings stamped in 2018 but before start date in deployments
+# OCCT13_M028_1432022: 7 detections stamped in 2015 but before start date in deployments; all suspiciously stamped on jan 1, so possible malfunction
+
+start_end_dates <- deployments[,c('deployment_id','start_date','end_date')]
+images <- left_join(images, start_end_dates, by='deployment_id')
+
+# for now, I don't see a better way than removing images outside start/end date
+images$keep <- ifelse(images$year < year(images$start_date),'No','Yes')
+images$keep <- ifelse(images$year > year(images$end_date), 'No', images$keep)
+table(images$keep)
+images <- subset(images, keep=='Yes')
 
 # Basic camera trap summaries#
 # Count the number of camera locations
@@ -346,12 +380,14 @@ taxonomy_headings <- c("class", "order", "family", "genus", "species", "common_n
 tmp<- images[,colnames(images)%in% taxonomy_headings]
 # Remove duplicates
 tmp <- tmp[duplicated(tmp)==F,]
-
+tmp[tmp == ""] <- NA 
 # Create an ordered species list
 sp_list  <- tmp[order(tmp$class, tmp$order, tmp$family, tmp$genus, tmp$species),]
-
+#sp_list[sp_list == ""] <- NA 
 # Create a column to the species list with genus and species pasted together
 sp_list$sp <- paste(sp_list$genus, sp_list$species, sep=".")
+unique(sp_list$sp)
+
 
 # View the species list using kableExtra
 # or just click on the data in the Environment tab
@@ -403,13 +439,22 @@ fig
 
 # 6.5.1: Filter to target species:
 # Remove observations without animals detected, where we don't know the species, and non-mammals
+#images[images == ""] <- NA 
 images_sub <- images %>% filter(is_blank==0,                # Remove the blanks
                           is.na(images$species)==FALSE,  # Remove classifications which don't have species 
                           class=="Mammalia",          # Subset to mammals
-                          species!="sapiens")         # Subset to anything that isn't human
+                          species!="sapiens",
+                          species!='familiaris')         # Subset to anything that isn't human or domestic dog
+
+# even rows designated as not blank may have blank in species
+images_sub$species[images_sub$species==""] <- NA
+images_sub <- images_sub[!is.na(images_sub$species),]
+
 images_sub_species <- images_sub %>% 
   group_by(common_name) %>% 
   summarize(count=n())
+length(unique(images_sub_species$common_name)) #many not at species level
+
 
 # 6.5.2: Create a daily camera activity lookup
 # Remove any deployments without end dates
@@ -510,13 +555,17 @@ images_tmp <-  images_tmp %>%
 # Remove duplicates
 ind_dat <- images_tmp[duplicated(images_tmp$event_id)==F,]
 
-# Make a  unique code for ever day and deployment where cameras were functioning
+# Make a  unique code for every day and deployment where cameras were functioning
 tmp <- paste(row_lookup$date, row_lookup$placename)
 
 #Subset ind_dat to data that matches the unique codes
 ind_dat <- ind_dat[paste(substr(ind_dat$timestamp,1,10), ind_dat$placename) %in% tmp, ]
 
 ind_dat$common_name <- as.factor(ind_dat$common_name)
+length(unique(ind_dat$species))
+length(unique(images_tmp$species))
+ind_dat$sp <- paste0(ind_dat$genus, '.',ind_dat$species)
+ind_dat$sp <- as.factor(ind_dat$sp)
 
 ## 6.6 Creating analysis dataframes
 #A data frame of “independent detections” at the 30 minute threshold you specified at the start:
@@ -534,7 +583,7 @@ tmp <- deployments[, c("project_id", "placename", "longitude", "latitude", "feat
 # Remove duplicated rows
 tmp <- tmp[duplicated(tmp)==F,]
 # write the file
-write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_camera_locations.csv"), row.names = F)
+#write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_camera_locations.csv"), row.names = F)
 
 # final species list
 tmp <- sp_list[sp_list$common_name %in% ind_dat$common_name,]
@@ -543,11 +592,12 @@ tmp <- sp_list[sp_list$common_name %in% ind_dat$common_name,]
 tmp$verified <- NULL
 
 # We will replace the spaces in the species names with dots, this will make things easier for us later (as column headings with spaces in are annoying).
-library(stringr)
-tmp$common_name <- str_replace(tmp$common_name, " ", ".")
+# library(stringr)
+# tmp$sp <- str_replace(tmp$sp, " ", ".")
 
 #write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_species_list.csv"), row.names = F)
 
+##
 # A ‘site x species’ matrix of the number of independent detections and species counts across the full study period
 # Total counts
 # Station / Month / deport / Species      
@@ -562,7 +612,7 @@ total_obs <- tmp %>%
 total_obs <- as.data.frame(total_obs)
 
 # Add columns for each species  
-total_obs[, levels(ind_dat$common_name)] <- NA
+total_obs[, levels(ind_dat$sp)] <- NA
 # Duplicate for counts
 total_count <- total_obs
 # Test counter
@@ -572,10 +622,10 @@ for(i in 1:nrow(total_obs))
 {
   tmp <- ind_dat[ind_dat$placename==total_obs$placename[i],]
   
-  tmp_stats <- tmp %>%  group_by(common_name, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
+  tmp_stats <- tmp %>%  group_by(sp, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
   
-  total_obs[i,as.character(tmp_stats$common_name)] <- tmp_stats$obs
-  total_count[i,as.character(tmp_stats$common_name)] <- tmp_stats$count
+  total_obs[i,as.character(tmp_stats$sp)] <- tmp_stats$obs
+  total_count[i,as.character(tmp_stats$sp)] <- tmp_stats$count
 }
 
 
@@ -598,17 +648,17 @@ mon_obs <- tmp %>%
 # Convert to a data frame
 mon_obs <- as.data.frame(mon_obs)
 
-mon_obs[, levels(ind_dat$common_name)] <- NA
+mon_obs[, levels(ind_dat$sp)] <- NA
 mon_count <- mon_obs
 # For each month, count the number of individuals/observations
 for(i in 1:nrow(mon_obs))
 {
   tmp <- ind_dat[ind_dat$placename==mon_obs$placename[i] & substr(ind_dat$timestamp,1,7)== mon_obs$date[i],]
   
-  tmp_stats <- tmp %>%  group_by(common_name, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
+  tmp_stats <- tmp %>%  group_by(sp, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
   
-  mon_obs[i,as.character(tmp_stats$common_name)] <- tmp_stats$obs
-  mon_count[i,as.character(tmp_stats$common_name)] <- tmp_stats$count
+  mon_obs[i,as.character(tmp_stats$sp)] <- tmp_stats$obs
+  mon_count[i,as.character(tmp_stats$sp)] <- tmp_stats$count
   
 }
 
@@ -632,7 +682,7 @@ week_obs <- tmp %>%
 week_obs <- as.data.frame(week_obs)
 
 # Add species columns  
-week_obs[, levels(ind_dat$common_name)] <- NA
+week_obs[, levels(ind_dat$sp)] <- NA
 
 # Duplicate for counts
 week_count <- week_obs
@@ -642,10 +692,10 @@ for(i in 1:nrow(week_obs))
 {
   tmp <- ind_dat[ind_dat$placename==week_obs$placename[i] & strftime(ind_dat$timestamp, format = "%Y-W%U")== week_obs$date[i],]
   
-  tmp_stats <- tmp %>%  group_by(common_name, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
+  tmp_stats <- tmp %>%  group_by(sp, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
   
-  week_obs[i,as.character(tmp_stats$common_name)] <- tmp_stats$obs
-  week_count[i,as.character(tmp_stats$common_name)] <- tmp_stats$count
+  week_obs[i,as.character(tmp_stats$sp)] <- tmp_stats$obs
+  week_count[i,as.character(tmp_stats$sp)] <- tmp_stats$count
   
 }
 
@@ -658,7 +708,7 @@ for(i in 1:nrow(week_obs))
 tmp <- row_lookup
 tmp$days <- 1
 # Add species columns  
-tmp[, levels(ind_dat$common_name)] <- NA
+tmp[, levels(ind_dat$sp)] <- NA
 
 day_obs <- tmp
 day_count <- tmp
@@ -667,10 +717,10 @@ for(i in 1:nrow(day_obs))
 {
   tmp <- ind_dat[ind_dat$placename==day_obs$placename[i] & strftime(ind_dat$timestamp, format = "%Y-%m-%d")== day_obs$date[i],]
   
-  tmp_stats <- tmp %>%  group_by(common_name, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
+  tmp_stats <- tmp %>%  group_by(sp, .drop=F) %>% summarise(obs=n(), count=sum(animal_count))
   
-  day_obs[i,as.character(tmp_stats$common_name)] <- tmp_stats$obs
-  day_count[i,as.character(tmp_stats$common_name)] <- tmp_stats$count
+  day_obs[i,as.character(tmp_stats$sp)] <- tmp_stats$obs
+  day_count[i,as.character(tmp_stats$sp)] <- tmp_stats$count
   
   
 }
@@ -680,10 +730,10 @@ for(i in 1:nrow(day_obs))
 # 6.6.1: final data check
 # observations
 tmp <- cbind(data.frame("Time"=c("Total", "Monthly", "Weekly", "Daily")),
-             rbind(colSums(total_obs[,2:ncol(total_obs)]),
-                   colSums(mon_obs[,3:ncol(mon_obs)]),
-                   colSums(week_obs[,3:ncol(week_obs)]),
-                   colSums(day_obs[,3:ncol(day_obs)])  ))
+             rbind(colSums(total_obs[,2:ncol(total_obs)], na.rm=T),
+                   colSums(mon_obs[,3:ncol(mon_obs)], na.rm=T),
+                   colSums(week_obs[,3:ncol(week_obs)], na.rm=T),
+                   colSums(day_obs[,3:ncol(day_obs)], na.rm=T)  ))
 
 tmp %>%
   kbl() %>%
@@ -693,10 +743,10 @@ tmp %>%
 
 # counts
 tmp <- cbind(data.frame("Time"=c("Total", "Monthly", "Weekly", "Daily")),
-             rbind(colSums(total_count[,2:ncol(total_count)]),
-                   colSums(mon_count[,3:ncol(mon_count)]),
-                   colSums(week_count[,3:ncol(week_count)]),
-                   colSums(day_count[,3:ncol(day_count)])  ))
+             rbind(colSums(total_count[,2:ncol(total_count)], na.rm=T),
+                   colSums(mon_count[,3:ncol(mon_count)], na.rm=T),
+                   colSums(week_count[,3:ncol(week_count)], na.rm=T),
+                   colSums(day_count[,3:ncol(day_count)], na.rm=T)  ))
 
 tmp %>%
   kbl() %>%
@@ -706,347 +756,3 @@ tmp %>%
 
 
 #############
-# Remove error row and duplicates:
-deployments <- subset(deployments, !(deployment_id %in% c('OCCT09_M046_1432022 (remove)')))
-
-deployments <- dplyr::distinct(deployments, .keep_all=T)
-
-
-# Map camera trap locations
-lat <- osacams$latitude
-lon <- osacams$longitude
-lonlat <- cbind(lon, lat)
-
-crdref <- "EPSG:4326" #I think this is the right one
-osacams_pts <- terra::vect(lonlat, crs=crdref)
-osacams_pts <- terra::project(osacams_pts, "EPSG:31971")
-
-par(mfrow=c(1,1))
-plot(AmistOsa)
-plot(osacams_pts, add=T)
-
-lat2 <- deployments$latitude
-lon2 <- deployments$longitude
-lonlat2 <- cbind(lon2, lat2)
-
-deployments_pts <- terra::vect(lonlat2, crs=crdref)
-deployments_pts <- terra::project(deployments_pts, "EPSG:31971")
-
-plot(AmistOsa)
-plot(deployments_pts, add=T, col='red')
-plot(osacams_pts, add=T, col='blue')
-
-## Extract some basic data from camera trap locations
-osacams_elevation <- terra::extract(DEM, osacams_pts, na.rm=T)
-names(osacams_elevation) <- c('ID','elevation')
-deployments_elevation <- terra::extract(DEM, deployments_pts, na.rm=T)
-names(deployments_elevation) <- c('ID','elevation')
-hist(osacams_elevation$elevation, main='Elevation', 
-     xlab='Elevation (m)', xlim=c(0,2000), breaks=seq(0,2000,50))
-hist(deployments_elevation$elevation, main='Elevation', 
-     xlab='Elevation (m)', xlim=c(0,2000), breaks=seq(0,2000,50))
-
-osacams_canopy <- terra::extract(canopy, osacams_pts, na.rm=T)
-names(osacams_canopy) <- c('ID','canopy_height')
-deployments_canopy <- terra::extract(canopy, deployments_pts, na.rm=T)
-names(deployments_canopy) <- c('ID','canopy_height')
-hist(osacams_canopy$canopy_height, main='Canopy height',
-     xlab='Canopy height (m)', xlim=c(5,30), breaks=seq(5,30,1))
-hist(deployments_canopy$canopy_height, main='Canopy height',
-     xlab='Canopy height (m)', xlim=c(5,30), breaks=seq(5,30,1))
-
-## create buffer for % forest (or other stuff)
-buff_dist <- 100 #meters
-
-osacams_pts_buff <- terra::buffer(osacams_pts, buff_dist)
-plot(AmistOsa)
-plot(osacams_pts_buff, add=T, col='red') #will be hard to see
-
-deployments_pts_buff <- terra::buffer(deployments_pts, buff_dist)
-plot(AmistOsa)
-plot(osacams_pts_buff, add=T, col='red') #will be hard to see
-
-osacams_pts_buff_forest <- terra::extract(forest, osacams_pts_buff, fun='table', na.rm=T)
-names(osacams_pts_buff_forest) <- c('ID','nForestCells')
-
-osacams_pts_buff_forest$forest_areasqm <- osacams_pts_buff_forest$nForestCells*100
-osacams_pts_buff_forest$buffer_areasqm <- terra::expanse(osacams_pts_buff, unit='m')
-osacams_pts_buff_forest$pct_forest <- osacams_pts_buff_forest$forest_areasqm/osacams_pts_buff_forest$buffer_areasqm
-osacams_pts_buff_forest$pct_forest <- ifelse(osacams_pts_buff_forest$pct_forest > 1, 1, osacams_pts_buff_forest$pct_forest)
-
-hist(osacams_pts_buff_forest$pct_forest, main='Forest cover', xlab='Forest cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
-
-deployments_pts_buff_forest <- terra::extract(forest, deployments_pts_buff, fun='table', na.rm=T)
-names(deployments_pts_buff_forest) <- c('ID','nForestCells')
-
-deployments_pts_buff_forest$forest_areasqm <- deployments_pts_buff_forest$nForestCells*100
-deployments_pts_buff_forest$buffer_areasqm <- terra::expanse(deployments_pts_buff, unit='m')
-deployments_pts_buff_forest$pct_forest <- deployments_pts_buff_forest$forest_areasqm/deployments_pts_buff_forest$buffer_areasqm
-deployments_pts_buff_forest$pct_forest <- ifelse(deployments_pts_buff_forest$pct_forest > 1, 1, deployments_pts_buff_forest$pct_forest)
-
-hist(deployments_pts_buff_forest$pct_forest, main='Forest cover', xlab='Forest cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
-
-# Ag
-osacams_pts_buff_ag <- terra::extract(ag, osacams_pts_buff, fun='table', na.rm=T)
-names(osacams_pts_buff_ag) <- c('ID','nAgCells')
-
-osacams_pts_buff_ag$ag_areasqm <- osacams_pts_buff_ag$nAgCells*100
-osacams_pts_buff_ag$buffer_areasqm <- terra::expanse(osacams_pts_buff, unit='m')
-osacams_pts_buff_ag$pct_ag <- osacams_pts_buff_ag$ag_areasqm/osacams_pts_buff_ag$buffer_areasqm
-osacams_pts_buff_ag$pct_ag <- ifelse(osacams_pts_buff_ag$pct_ag > 1, 1, osacams_pts_buff_ag$pct_ag)
-
-hist(osacams_pts_buff_ag$pct_ag, main='Agriculture cover', xlab='Ag cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
-
-deployments_pts_buff_ag <- terra::extract(ag, deployments_pts_buff, fun='table', na.rm=T)
-names(deployments_pts_buff_ag) <- c('ID','nAgCells')
-
-deployments_pts_buff_ag$ag_areasqm <- deployments_pts_buff_ag$nAgCells*100
-deployments_pts_buff_ag$buffer_areasqm <- terra::expanse(deployments_pts_buff, unit='m')
-deployments_pts_buff_ag$pct_ag <- deployments_pts_buff_ag$ag_areasqm/deployments_pts_buff_ag$buffer_areasqm
-deployments_pts_buff_ag$pct_ag <- ifelse(deployments_pts_buff_ag$pct_ag > 1, 1, deployments_pts_buff_ag$pct_ag)
-
-hist(deployments_pts_buff_ag$pct_ag, main='Agriculture cover', xlab='Ag cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
-
-# Current flow
-osacams_pts_buff_current_flow <- terra::extract(current_flow, osacams_pts_buff, fun='mean', na.rm=T)
-names(osacams_pts_buff_current_flow) <- c('ID','mean_current')
-
-deployments_pts_buff_current_flow <- terra::extract(current_flow, deployments_pts_buff, fun='mean', na.rm=T)
-names(deployments_pts_buff_current_flow) <- c('ID','mean_current')
-
-hist(osacams_pts_buff_current_flow$mean_current, main='Mean current', 
-     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.1))
-mtext(side=3, '100 m buffers around camera locations')
-
-hist(deployments_pts_buff_current_flow$mean_current, main='Mean current', 
-     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.1))
-mtext(side=3, '100 m buffers around camera locations')
-
-# Assemble dataframe of attributes to join to image data
-deployments_merger_list <- list(deployments, deployments_canopy, deployments_elevation, deployments_pts_buff_ag[,c(2,3,5)],
-                                deployments_pts_buff_forest[,c(2,3,5)], deployments_pts_buff_current_flow)
-deployments_merger <- do.call(cbind.data.frame, deployments_merger_list)
-#deployments_merger <- deployments_merger %>% select(-matches('ID'))
-
-#### Analysis of detection data ####
-length(unique(deployments$deployment_id))
-images[images == ""] <- NA  #convert blanks to NA
-
-# get rid of rows with "remove" (intended for removal, but couldn't be once uploaded)
-images <- images %>% 
-  filter(!grepl('remove', deployment_id))
-
-# get species as genus - species
-images$SpeciesName <- paste0(images$genus, ' ', images$species)
-
-# remove rows that just say "Animal" in common_name column
-images <- images %>% 
-  filter(!grepl('Animal', common_name))
-
-# what about duplicate images?
-# seems that duplicate images are OK - they contain muliple species detected, so they have multiple rows
-length(unique(images$image_id))
-
-# deal with dates
-images$Date <- as.Date(images$timestamp)
-images$Year <- year(images$Date)
-images$Month <- month(images$Date, label=T, abbr=T)
-
-# test <- images %>%
-#   filter(duplicated(.[["image_id"]]))
-# dd <- subset(images, filename=='07020174.JPG')
-# zz <- subset(images, filename=='07020087.JPG')
-# xx <- subset(images, filename=='07020130.JPG')
-
-## Summarize detection data per camera site
-cam_summary <- images %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nDetections = n(),
-                   nSpecies = n_distinct(species),
-                   nGenus = n_distinct(genus),
-                   nFamily = n_distinct(family),
-                   nOrder = n_distinct(order),
-                   nClass = n_distinct(class)) %>%
-  as.data.frame()
-summary(cam_summary)
-
-hist(cam_summary$nDetections, main='Total detections', xlab='Number of detections')
-hist(cam_summary$nSpecies, main='Species', xlab='Number of species')
-hist(cam_summary$nGenus, main='Genera', xlab='Number of genera')
-hist(cam_summary$nFamily, main='Families', xlab='Number of familes')
-hist(cam_summary$nOrder, main='Orders', xlab='Number of orders')
-hist(cam_summary$nClass, main='Classes', xlab='Number of classes')
-
-## mammals by site
-mammal_summary <- subset(images, class=='Mammalia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nMammalSpecies = n_distinct(species),
-                   nMammalGenus = n_distinct(genus),
-                   nMammalFamily = n_distinct(family),
-                   nMammalOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(mammal_summary)
-
-## birds by site
-bird_summary <- subset(images, class=='Aves') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nBirdSpecies = n_distinct(species),
-                   nBirdGenus = n_distinct(genus),
-                   nBirdFamily = n_distinct(family),
-                   nBirdOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(bird_summary)
-
-## reptiles by site
-reptile_summary <- subset(images, class=='Reptilia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nReptileSpecies = n_distinct(species),
-                   nReptileGenus = n_distinct(genus),
-                   nReptileFamily = n_distinct(family),
-                   nReptileOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(reptile_summary)
-
-## Amphibians by site
-amphibian_summary <- subset(images, class=='Amphibia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nAmphibianSpecies = n_distinct(species),
-                   nAmphibianGenus = n_distinct(genus),
-                   nAmphibianFamily = n_distinct(family),
-                   nAmphibianOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(amphibian_summary)
-
-## Amphibians by site
-amphibian_summary <- subset(images, class=='Reptilia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nAmphibianSpecies = n_distinct(species),
-                   nAmphibianGenus = n_distinct(genus),
-                   nAmphibianFamily = n_distinct(family),
-                   nAmphibianOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(amphibian_summary)
-
-class_list <- list(mammal_summary, bird_summary, reptile_summary, amphibian_summary, insect_summary)
-class_summary <- Reduce(function(x, y) merge(x, y, all=T), class_list)
-
-# Merge camera site attributes to camera summaries by site
-deployments_attributes <- merge(deployments_merger, cam_summary, by='deployment_id', all=F)
-deployments_attributes <- merge(deployments_attributes, class_summary, by='deployment_id', all=T)
-
-plot(nSpecies ~ mean_current, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nSpecies, deployments_attributes$mean_current,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ pct_forest, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nSpecies, deployments_attributes$pct_forest,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ elevation, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nSpecies, deployments_attributes$elevation,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ canopy_height, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nSpecies, deployments_attributes$canopy_height,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ pct_ag, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nSpecies, deployments_attributes$pct_ag,
-         use='pairwise.complete.obs', method='spearman')
-
-plot(nMammalSpecies ~ mean_current, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nMammalSpecies, deployments_attributes$mean_current,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ pct_forest, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nMammalSpecies, deployments_attributes$pct_forest,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ elevation, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nMammalSpecies, deployments_attributes$elevation,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ canopy_height, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nMammalSpecies, deployments_attributes$canopy_height,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ pct_ag, data=deployments_attributes, pch=20)
-cor.test(deployments_attributes$nMammalSpecies, deployments_attributes$pct_ag,
-         use='pairwise.complete.obs', method='spearman')
-
-# Map species data
-# lonn <- deployments_attributes$longitude
-# latt <- deployments_attributes$latitude
-# lonnlatt <- cbind(lonn, latt)
-# 
-# deployments_attributes_pts <- terra::vect(lonnlatt, crs=crdref)
-# deployments_attributes_pts <- terra::project(deployments_attributes_pts, "EPSG:31971")
-
-deployments_pts$deployment_id <- deployments$deployment_id
-deployments_attributes_pts <- merge(deployments_pts, deployments_attributes, by='deployment_id', all=F)
-
-plot(AmistOsa)
-plot(deployments_attributes_pts, "nSpecies", col=heat.colors(5, rev=T), add=T)
-
-## Analyze detections by class (i.e., mammals, birds)
-detections_by_class <- images %>% 
-  dplyr::count(class) %>%
-  as.data.frame()
-detections_by_class$pct <- (detections_by_class$n/sum(detections_by_class$n))*100
-pie_data <- detections_by_class %>%
-  arrange(desc(n)) %>%
-  mutate(lab.ypos = cumsum(pct) - 0.5*pct)
-pie_data
-pie_data$class_fac <- as.factor(pie_data$class)
-pie_data$class_fac <- factor(pie_data$class_fac, levels=c('Mammalia','Aves','No CV Result','Amphibia','Reptilia','Insecta'))
-roundedpct <- round(pie_data$pct, 1)
-mylabs <- paste0(pie_data$class_fac, ' (', roundedpct, '%)')
-mycols <- c("forestgreen","darkgoldenrod1","royalblue",
-            'purple','gray80','firebrick')
-
-ggplot(pie_data, aes(x = "", y = pct, fill = class_fac)) +
-  geom_bar(width = 1, stat = "identity", color = "white") +
-  coord_polar("y", start = 0)+
-  scale_fill_manual(values = mycols, labels=mylabs, name='Class') +
-  ggtitle("Detections by class") +
-  theme_void()+
-  theme(plot.title = element_text(hjust = 0.8))
-
-
-# trying to produce map, but may ultimately be better in Q
-ggplot(deployments_attributes_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nSpecies))+
-  theme_classic()
-
-ggplot(deployments_attributes_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nMammalSpecies))+
-  theme_classic()
-
-ggplot(deployments_attributes_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nBirdSpecies))+
-  theme_classic()
-
-## Where are the tapirs??
-bio_data <- images[,c(2,9:14,28)]
-tapir <- subset(bio_data, SpeciesName =='Tapirus bairdii')
-
-tapir_bySite <- tapir %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nTapir = n()) %>%
-  as.data.frame()
-
-tapir_pts <- merge(deployments_attributes_pts, tapir_bySite, by='deployment_id', all=F)
-
-ggplot(tapir_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nTapir))+
-  theme_classic()+
-  ggtitle('Tapir')
-
