@@ -344,8 +344,10 @@ corrplot(M, method="color",
 
 ## Other covariates
 total_binary$Richness <- rowSums(total_binary[,c(3:ncol(total_binary))])
+total_detections <- rowSums(total_obs[,c(3:31)])
 
 happy_data <- merge(total_binary, cameras_merger, by='placename')
+happy_data$total_detections <- total_detections
 
 expo_plot <- function(dataframe, xvar, yvar){
   plot(dataframe[,yvar] ~ dataframe[,xvar], pch=20,
@@ -355,12 +357,22 @@ expo_plot <- function(dataframe, xvar, yvar){
   rval <- round(corr$estimate,2)
   pval <- round(corr$p.value,2)
   mtext(side=3, paste0('rho = ', rval, ', p = ', pval))
+  abline(elem <- lm(dataframe[,yvar] ~ dataframe[,xvar]))
   #legend('topleft', paste0('r = ', rval, ', p = ', pval), bty='n')
 }
 expo_plot(happy_data, xvar='pct_forest', yvar='Richness')
 expo_plot(happy_data, xvar='mean_current', yvar='Richness')
 expo_plot(happy_data, xvar='mean_conductance', yvar='Richness')
 expo_plot(happy_data, xvar='canopy_height_m', yvar='Richness')
+
+expo_plot(happy_data, xvar='pct_forest', yvar='total_detections')
+expo_plot(happy_data, xvar='mean_current', yvar='total_detections')
+expo_plot(happy_data, xvar='mean_conductance', yvar='total_detections')
+expo_plot(happy_data, xvar='canopy_height_m', yvar='total_detections')
+
+expo_plot(happy_data, xvar='Richness', yvar='total_detections')
+hist(happy_data$total_detections)
+hist(happy_data$Richness)
 
 # plot(Richness ~ pct_forest, happy_data, pch=20)
 # corr <- cor.test(happy_data$Richness, happy_data$pct_forest, method='spearman', use='pairwise.complete.obs')
