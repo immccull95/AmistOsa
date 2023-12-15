@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 
+# updated: 12-15-23
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -12,6 +12,11 @@ library(corrplot)
 library(tidyverse)
 library(plotly)
 library(leaflet)
+library(iNEXT)
+library(ggplot2)
+library(gridExtra)
+library(tidyterra)
+library(vegan) #asked to install permute package
 # This package isn't available on Cran, so we must use the remotes package
 #library(remotes)
 #remotes::install_github("RS-eco/traitdata", build_vignettes = T, force=T) #threw error, said to try build=F
@@ -30,6 +35,8 @@ cameras <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2
 projects <- read.csv("Data/spatial/CameraTraps/wildlife-insights/projects.csv")
 total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_30min_independent_total_observations.csv", header=T)
 mon_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_30min_independent_monthly_observations.csv", header=T)
+week_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_30min_independent_weekly_observations.csv")
+
 
 # DEM
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
@@ -117,13 +124,9 @@ terra::plot(cameras_pts, add=T, col='red')
 ## Extract some basic data from camera trap locations
 cameras_elevation <- terra::extract(DEM, cameras_pts, na.rm=T)
 names(cameras_elevation) <- c('ID','elevation_m')
-hist(cameras_elevation$elevation_m, main='Elevation', 
-     xlab='Elevation (m)', xlim=c(0,2000), breaks=seq(0,2000,50))
 
-cameras_canopy <- terra::extract(canopy, cameras_pts, na.rm=T)
-names(cameras_canopy) <- c('ID','canopy_height_m')
-hist(cameras_canopy$canopy_height_m, main='Canopy height',
-     xlab='Canopy height (m)', xlim=c(5,30), breaks=seq(5,30,1))
+# cameras_canopy <- terra::extract(canopy, cameras_pts, na.rm=T)
+# names(cameras_canopy) <- c('ID','canopy_height_m')
 
 ## create buffer for % forest (or other stuff)
 buff_dist <- 100 #meters
@@ -138,8 +141,8 @@ cameras_pts_buff_forest$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit=
 cameras_pts_buff_forest$pct_forest <- cameras_pts_buff_forest$forest_areasqm/cameras_pts_buff_forest$buffer_areasqm
 cameras_pts_buff_forest$pct_forest <- ifelse(cameras_pts_buff_forest$pct_forest > 1, 1, cameras_pts_buff_forest$pct_forest)
 
-hist(cameras_pts_buff_forest$pct_forest, main='Forest cover', xlab='Forest cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
+cameras_canopy <- terra::extract(canopy, cameras_pts_buff, na.rm=T, fun='mean')
+names(cameras_canopy) <- c('ID','canopy_height_m')
 
 # Ag
 cameras_pts_buff_ag <- terra::extract(ag, cameras_pts_buff, fun='table', na.rm=T)
@@ -150,24 +153,14 @@ cameras_pts_buff_ag$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
 cameras_pts_buff_ag$pct_ag <- cameras_pts_buff_ag$ag_areasqm/cameras_pts_buff_ag$buffer_areasqm
 cameras_pts_buff_ag$pct_ag <- ifelse(cameras_pts_buff_ag$pct_ag > 1, 1, cameras_pts_buff_ag$pct_ag)
 
-hist(cameras_pts_buff_ag$pct_ag, main='Agriculture cover', xlab='Ag cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
 
 # Current flow
 cameras_pts_buff_current_flow <- terra::extract(current_flow, cameras_pts_buff, fun='mean', na.rm=T)
 names(cameras_pts_buff_current_flow) <- c('ID','mean_current')
 
-hist(cameras_pts_buff_current_flow$mean_current, main='Mean current', 
-     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.1))
-mtext(side=3, '100 m buffers around camera locations')
-
 # Conductance
 cameras_pts_buff_conductance <- terra::extract(conductance, cameras_pts_buff, fun='mean', na.rm=T)
 names(cameras_pts_buff_conductance) <- c('ID','mean_conductance')
-
-hist(cameras_pts_buff_conductance$mean_conductance, main='Mean conductance', 
-     xlab='Mean conductance')#, xlim=c(0,2), breaks=seq(0,2,0.1))
-mtext(side=3, '100 m buffers around camera locations')
 
 # Located in protected area?
 protected_cameras <- terra::intersect(cameras_pts, protected_areas)
@@ -200,6 +193,29 @@ corrplot(M,                              #The correlation matrix we made
          tl.col="black", tl.srt=45,      # Control the text label color and rotation
          diag=F                          # Suppress the diagonal correlations (which are 1 anyway)
 )
+
+par(mfrow=c(2,3))
+hist(cameras_elevation$elevation_m, main='Elevation', 
+     xlab='Elevation (m)', xlim=c(0,2000), breaks=seq(0,2000,50))
+
+hist(cameras_canopy$canopy_height_m, main='Canopy height',
+     xlab='Canopy height (m)', xlim=c(5,30), breaks=seq(5,30,1))
+mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_pts_buff_forest$pct_forest, main='Forest cover', xlab='Forest cover (prop)')
+mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_pts_buff_ag$pct_ag, main='Agriculture cover', xlab='Ag cover (prop)')
+mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_pts_buff_current_flow$mean_current, main='Mean current', 
+     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.1))
+mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_pts_buff_conductance$mean_conductance, main='Mean conductance', 
+     xlab='Mean conductance')#, xlim=c(0,2), breaks=seq(0,2,0.1))
+mtext(side=3, '100 m buffers around camera locations')
+
 
 #### Community (Greendale?) data ####
 # first, need independent detections summary
@@ -360,6 +376,7 @@ expo_plot <- function(dataframe, xvar, yvar){
   abline(elem <- lm(dataframe[,yvar] ~ dataframe[,xvar]))
   #legend('topleft', paste0('r = ', rval, ', p = ', pval), bty='n')
 }
+par(mfrow=c(2,2))
 expo_plot(happy_data, xvar='pct_forest', yvar='Richness')
 expo_plot(happy_data, xvar='mean_current', yvar='Richness')
 expo_plot(happy_data, xvar='mean_conductance', yvar='Richness')
@@ -384,7 +401,10 @@ plot(Richness ~ canopy_height_m, happy_data, pch=20)
 plot(Richness ~ elevation_m, happy_data, pch=20)
 plot(Richness ~ pct_ag, happy_data, pch=20)
 plot(Richness ~ mean_current, happy_data, pch=20)
+
+par(mfrow=c(1,2))
 boxplot(Richness ~ Protected, happy_data, las=1)
+boxplot(total_detections ~ Protected, happy_data, las=1)
 
 # species_names <- colnames(happy_data[,c(3:31)])
 # for (i in 1:length(species_names)) {
@@ -439,9 +459,173 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 terra::plot(subset(cameras_pts, cameras_pts$placename %in% collared$placename), add=T, col='gold')
 
+## 9.3: Sampling unit based accumulation curves
+inc_dat <- total_obs %>% 
+  mutate(across(sp_summary$sp, ~+as.logical(.x)))  # Turn species counts into 0's and 1's
+
+# Make an empty list to store our data
+project_level <- list()
+# # Sum all of the observations of each species (colSums), and then make it an element within the project_level list
+project_level[[1]] <-  c(nrow(inc_dat),  # First count the number of stations
+                         # Then subset the detections to those stations, sum the columns, and sort the incidents
+                         inc_dat[, sp_summary$sp] %>%  colSums() %>% sort(decreasing=T))
+# # Give it a name
+names(project_level) <- "project_level"
+
+# Execute iNEXT model
+out <- iNEXT(project_level,          # The data frame
+             q=0,                    # The type of diversity estimator (see discussion of the options below)
+             datatype="incidence_freq",   # The type of analysis
+             knots=40,                    # The number of data points in your line (more = smoother)
+             se=T,                     # Logical statement if you want confidence intervals
+             conf=0.95,                   # The level of confidence intervals
+             nboot=50)                    # The number of replications to perform - this generates your confidence interval - the bigger the number the longer the run time
+
+# plots: original code threw warning to change color.var to Order.q
+p1 <- ggiNEXT(out, type=1, color.var='Order.q')+ theme_classic() +   #  type 1 = the diversity estimator
+labs(x = "Survey sites", y = "Richness")
+
+p2 <- ggiNEXT(out, type=2, color.var='Order.q')+ theme_classic() +    #  type 2 = the survey coverage
+  labs(x = "Survey sites")
+
+grid.arrange(p1, p2, nrow = 1)
+
+# Compare protected and unprotected camera sites?
+protected <- cameras_merger$placename[cameras_merger$Protected=="Yes"]
+# And "unprotected" cameras
+unprotected <- cameras_merger$placename[cameras_merger$Protected=="No"]
+
+# Create a new empty list
+inc_locations <- list()
+
+# Only sum the data for each relvent locations
+inc_locations[[1]] <- c(length(protected),  # First count the number of stations
+                        # Then subset the detections to those stations, sum the columns, and sort the incidents
+                        inc_dat[inc_dat$placename %in% protected, sp_summary$sp] %>%  colSums() %>% sort(decreasing=T))
 
 
-#### Analysis of detection data ####
+inc_locations[[2]] <- c(length(unprotected),  # Count the number of stations
+                        # Then subset the detections to those stations, sum the columns, and sort the incidents
+                        inc_dat[inc_dat$placename %in% unprotected, sp_summary$sp] %>%  colSums() %>% sort(decreasing=T))
+
+# Give them names
+names(inc_locations) <- c("Protected", "Unprotected")
+
+out.inc <- iNEXT(inc_locations, q=0, datatype="incidence_freq")
+# Sample‐size‐based R/E curves
+ggiNEXT(out.inc, type=1, color.var="Assemblage") +
+  labs(y="Richness", x = "Locations surveyed") + 
+  theme_classic() 
+
+# 9.4.1: Sampling duration
+# Turn it into binary incidents
+inc_dat <- week_obs %>% mutate(across(sp_summary$sp, ~+as.logical(.x))) 
+
+# Create a new empty list
+inc_time <- list()
+
+# Only sum the data for each relevent strata
+inc_time[[1]] <- c(nrow(inc_dat[inc_dat$placename %in% protected,]),  # Count the number of weeks we have data for in each strata
+                   # Then subset the detections to those stations, sum the columns, and sort the incidents
+                   inc_dat[inc_dat$placename %in% protected, sp_summary$sp] %>%  colSums() %>% sort(decreasing=T))
+
+
+inc_time[[2]] <- c(nrow(inc_dat[inc_dat$placename %in% unprotected,]),  # Count the number of stations
+                   # Then subset the detections to those stations, sum the columns, and sort the incidents
+                   inc_dat[inc_dat$placename %in% unprotected, sp_summary$sp] %>%  colSums() %>% sort(decreasing=T))
+
+# Give them names
+names(inc_time) <- c("Protected", "Unprotected")
+
+# throws warning: Insufficient data to provide reliable estimators and associated s.e.
+out.inc <- iNEXT(inc_time, q=0, datatype="incidence_freq")
+
+# Sample‐size‐based R/E curves
+ggiNEXT(out.inc, type=1, color.var="Assemblage") +
+  labs(y="Richness", x = "Camera weeks") +
+  theme_classic() 
+
+## 9.5.1: Simpson and Shannon
+# We also introduce the object t -> which reflects the range of values over which you want to predict species richness
+# also got warning about insufficient data
+# q:0 = richness, 1=Shannon, 2=Simpson
+out <- iNEXT(inc_time, q=c(0,1,2) ,datatype="incidence_freq" )
+
+ggiNEXT(out, type=1, facet.var="Order.q", color.var="Assemblage") + theme_classic() 
+
+# To generate predictions for specific amounts of survey effort, we make use of the variable t
+# T specifies the values you want iNEXt to calculate diversity for
+# again, warning about insufficient data
+out <- iNEXT(inc_time, q=c(0,1,2) ,datatype="incidence_freq", size=c(1000))
+
+# The lapply function applies the same logic across elements in a list
+point_estimate <- out$iNextEst$size_based[out$iNextEst$size_based$t==1000,] 
+point_estimate
+
+# Make a nice ggplot!
+# But this plot isn't right...how do we know the x=part??
+ggplot(point_estimate, aes(x=c(0,1,2,
+                               0,1,2), y=qD, colour=Assemblage)) + 
+  theme_classic() +
+  #scale_x_discrete(breaks=c("1","2"),labels= c("1","2")) +
+  geom_errorbar(aes(ymin=qD.LCL, ymax=qD.UCL), width=.01) +
+  labs(y="Diversity", x = "Diversity at 1000 survey days") +
+  geom_point() 
+
+## 9.6: Community structure
+# Add the covariates to your total_obs dataframe
+dat <- left_join(total_obs, cameras_merger)
+# Convert to categorical factors
+dat <- dat %>% 
+  mutate_if(is.character,as.factor)
+
+# Subset to just the count columns
+counts <- dat[,sp_summary$sp]
+
+# Covert it into a matrix
+m_counts <-  as.matrix(counts)
+tot <- rowSums(m_counts) #https://stackoverflow.com/questions/76212437/error-missing-value-where-true-false-needed-when-running-metamds-in-r
+m_counts <- m_counts[tot > 0, ]
+
+set.seed(123) # To make sure we all get the same result
+
+# run metaMDS on the count matrix using the " Bray-Curtis dissimilarity" note others are available
+nmds = metaMDS(m_counts,          # The count matrix
+               distance = "bray", # The method of solving 
+               trace=0)           # Supress the output - trace=1 is more informative
+
+
+# Make a dataframe out of the x and Y scores
+site.scores <- as.data.frame(scores(nmds)$sites)
+species.scores <- as.data.frame(scores(nmds)$species)
+
+# Add in the covariate data
+#add covariate columns to data frame 
+tots <- ifelse(tot>1, 1, 0)
+tots <- data.frame(tot=tots)
+tots$rownum <- seq(1,nrow(tots),1)
+tots <- subset(tots, tot==1) #use rownum as row index for dat? #still doesn't fit
+dat <- dat[c(tots$rownum),]
+site.scores$placename <- dat$placename #err here because subsetted data for non-zero rows
+site.scores$feature_type <- dat$feature_type
+
+# Assign colors to our feature_types using viridis
+# then use the turbo() function to assign each level a color
+col.cat <- cividis(length(levels(dat$feature_type)))
+# then we apply it to the dataframe
+dat$colours <- col.cat[dat$feature_type]
+
+## Basic richness map!
+cameras_mapping <- merge(cameras_pts, happy_data, by='placename')
+ggplot(cameras_mapping) +
+  geom_spatvector(data=AmistOsa, fill='white')+
+  geom_spatvector(data=protected_areas)+
+  geom_spatvector(data=top5_LCP)+
+  geom_spatvector(aes(color=Richness))+
+  theme_classic()
+
+
+#### OLD Analysis of detection data ####
 length(unique(cameras$deployment_id))
 images[images == ""] <- NA  #convert blanks to NA
 
