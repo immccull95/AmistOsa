@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 1-2-24
+# updated: 1-3-24
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -32,7 +32,7 @@ AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa_31971.shp")
 
 # Preliminary camera trap datasets (processed in 8_CameraTrapsDataChecks.R)
 # have prefix OSAGRID but actually combined OSAGRID and 2003884 projects
-species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_species_list.csv")
+#species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_species_list.csv")
 projects <- read.csv("Data/spatial/CameraTraps/wildlife-insights/projects.csv")
 total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_total_observations.csv", header=T)
 mon_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_monthly_observations.csv", header=T)
@@ -70,8 +70,14 @@ protected_areas_dissolved <- terra::aggregate(protected_areas, dissolve=T)
 # top5 LCP
 top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
 
+# Roads
+roads <- terra::vect("Data/spatial/Redcamino2014crtm05/AmistOsa_roads_31971.shp")
+
 # Conductance
 conductance <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_canopyheightmod.tif")
+
+# Combined camera trap site attribute data (if already run)
+cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes.csv")
 
 #### Main program ####
 ## Trait data
@@ -123,10 +129,7 @@ sp_summary[sp_summary$sp=="Cebus.imitator", c("mass_g", "act_noct","act_crep","a
 # https://eol.org/pages/45508958/articles 
 sp_summary[1,8] <- 8.7
 
-#write.csv(sp_summary, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/", projects$project_id[1],"_species_list_traits.csv"), row.names = F)
-
-## Camera trap location site attributes
-
+## Camera trap location map
 crdref <- "EPSG:4326" #I think this is the right one
 
 # get rid of duplicate locations
@@ -145,161 +148,12 @@ cameras_pts <- terra::merge(cameras_pts, cameras, by='placename')
 terra::plot(AmistOsa)
 terra::plot(cameras_pts, add=T, col='red')
 
-## Extract some basic data from camera trap locations
-cameras_elevation <- terra::extract(DEM, cameras_pts, na.rm=T)
-names(cameras_elevation) <- c('ID','elevation_m')
-
-# cameras_canopy <- terra::extract(canopy, cameras_pts, na.rm=T)
-# names(cameras_canopy) <- c('ID','canopy_height_m')
-
-## create buffer for % forest (or other stuff)
-buff_dist <- 100 #meters
-
-cameras_pts_buff <- terra::buffer(cameras_pts, buff_dist)
-
-## Percent forest
-cameras_pts_buff_forest <- terra::extract(forest, cameras_pts_buff, fun='table', na.rm=T)
-names(cameras_pts_buff_forest) <- c('ID','nForestCells')
-
-cameras_pts_buff_forest$forest_areasqm <- cameras_pts_buff_forest$nForestCells*100
-cameras_pts_buff_forest$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
-cameras_pts_buff_forest$pct_forest <- cameras_pts_buff_forest$forest_areasqm/cameras_pts_buff_forest$buffer_areasqm
-cameras_pts_buff_forest$pct_forest <- ifelse(cameras_pts_buff_forest$pct_forest > 1, 1, cameras_pts_buff_forest$pct_forest)
-
-## Forest patches in buffer
-forest_patches$patch_areasqkm <- terra::expanse(forest_patches, unit='km')
-cameras_pts_buff_forest_patches <- terra::intersect(cameras_pts_buff, forest_patches)
-cameras_pts_buff_forest_patches_df <- as.data.frame(cameras_pts_buff_forest_patches)
-cameras_pts_buff_forest_patches_summary <- cameras_pts_buff_forest_patches_df[,c('placename','patch_areasqkm')] %>%
-  dplyr::group_by(placename) %>%
-  dplyr::summarize(nForestPatches=n(),
-                   minForestPatchArea=min(patch_areasqkm, na.rm=T),
-                   medianForestPatchArea=median(patch_areasqkm, na.rm=T),
-                   meanForestPatchArea=mean(patch_areasqkm, na.rm=T),
-                   maxForestPatchArea=max(patch_areasqkm, na.rm=T)) %>%
-  as.data.frame()
-
-summary(cameras_pts_buff_forest_patches_summary)
-hist(cameras_pts_buff_forest_patches_summary$meanForestPatchArea, main='Mean forest patch area in buffer', xlab='sq km')
-
-# join back empty rows
-cameras_pts_buff_forest_patches_summary <- merge(cameras, cameras_pts_buff_forest_patches_summary, by='placename', all=T)
-cameras_pts_buff_forest_patches_summary <- cameras_pts_buff_forest_patches_summary[,c(1,6:10)]
-
-## Canopy height
-cameras_canopy <- terra::extract(canopy, cameras_pts_buff, na.rm=T, fun='mean')
-names(cameras_canopy) <- c('ID','canopy_height_m')
-
-## Core forest
-#forest_patch_core <- lsm_p_core(forest, directions=8, edge_depth=10)
-forest_core_raster <- terra::rasterize(forest_core, forest, values=1, fun='mean')
-cameras_pts_buff_forest_core <- terra::extract(forest_core_raster, cameras_pts_buff, fun='table', na.rm=T)
-names(cameras_pts_buff_forest_core) <- c('ID','nForestCoreCells')
-
-cameras_pts_buff_forest_core$coreforest_areasqm <- cameras_pts_buff_forest_core$nForestCoreCells*100
-cameras_pts_buff_forest_core$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
-cameras_pts_buff_forest_core$pct_forest_core <- cameras_pts_buff_forest_core$coreforest_areasqm/cameras_pts_buff_forest_core$buffer_areasqm
-cameras_pts_buff_forest_core$pct_forest_core <- ifelse(cameras_pts_buff_forest_core$pct_forest_core > 1, 1, cameras_pts_buff_forest_core$pct_forest_core)
-
-
-## Ag
-cameras_pts_buff_ag <- terra::extract(ag, cameras_pts_buff, fun='table', na.rm=T)
-names(cameras_pts_buff_ag) <- c('ID','nAgCells')
-
-cameras_pts_buff_ag$ag_areasqm <- cameras_pts_buff_ag$nAgCells*100
-cameras_pts_buff_ag$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
-cameras_pts_buff_ag$pct_ag <- cameras_pts_buff_ag$ag_areasqm/cameras_pts_buff_ag$buffer_areasqm
-cameras_pts_buff_ag$pct_ag <- ifelse(cameras_pts_buff_ag$pct_ag > 1, 1, cameras_pts_buff_ag$pct_ag)
-
-## Ag patches in buffer
-ag_patches$patch_areasqkm <- terra::expanse(ag_patches, unit='km')
-cameras_pts_buff_ag_patches <- terra::intersect(cameras_pts_buff, ag_patches)
-cameras_pts_buff_ag_patches_df <- as.data.frame(cameras_pts_buff_ag_patches)
-cameras_pts_buff_ag_patches_summary <- cameras_pts_buff_ag_patches_df[,c('placename','patch_areasqkm')] %>%
-  dplyr::group_by(placename) %>%
-  dplyr::summarize(nAgPatches=n(),
-                   minAgPatchArea=min(patch_areasqkm, na.rm=T),
-                   medianAgPatchArea=median(patch_areasqkm, na.rm=T),
-                   meanAgPatchArea=mean(patch_areasqkm, na.rm=T),
-                   maxAgPatchArea=max(patch_areasqkm, na.rm=T)) %>%
-  as.data.frame()
-
-summary(cameras_pts_buff_ag_patches_summary)
-hist(cameras_pts_buff_ag_patches_summary$meanAgPatchArea, main='Mean ag patch area in buffer', xlab='sq km')
-
-# join back empty rows
-cameras_pts_buff_ag_patches_summary <- merge(cameras, cameras_pts_buff_ag_patches_summary, by='placename', all=T)
-cameras_pts_buff_ag_patches_summary <- cameras_pts_buff_ag_patches_summary[,c(1,6:10)]
-
-## Current flow
-cameras_pts_buff_current_flow <- terra::extract(current_flow, cameras_pts_buff, fun='mean', na.rm=T)
-names(cameras_pts_buff_current_flow) <- c('ID','mean_current')
-
-## Conductance
-cameras_pts_buff_conductance <- terra::extract(conductance, cameras_pts_buff, fun='mean', na.rm=T)
-names(cameras_pts_buff_conductance) <- c('ID','mean_conductance')
-
-# Located in protected area?
-protected_cameras <- terra::intersect(cameras_pts, protected_areas)
-protected_cameras_df <- as.data.frame(protected_cameras)
-protected_cameras_df$Protected <- 'Yes'
-protected_cameras_df <- protected_cameras_df[,c('placename','Protected')]
-
-
-
-# Assemble dataframe of attributes to join to image data
-cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_pts_buff_ag[,c(2,3,5)], cameras_pts_buff_ag_patches_summary[,c(2,5)],
-                            cameras_pts_buff_forest[,c(2,3,5)], cameras_pts_buff_forest_core[,c(2,3,5)],
-                            cameras_pts_buff_forest_patches_summary[,c(2,5)], 
-                            cameras_pts_buff_current_flow, cameras_pts_buff_conductance)
-cameras_merger <- do.call(cbind.data.frame, cameras_merger_list)
-#cameras_merger <- cameras_merger %>% select(-matches('ID'))
-cameras_merger <- merge(cameras_merger, protected_cameras_df, by='placename', all=T)
-cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,24,26,27)] #get rid of replicated ID columns
-# replace NA in protected with "No" to indicate not protected
-cameras_merger[c("Protected")][is.na(cameras_merger[c("Protected")])] <- 'No'
-table(cameras_merger$Protected)
-
-cameras_merger[is.na(cameras_merger)] <- 0
-
-#write.csv(cameras_merger, file='Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes.csv', row.names=F)
-
-# PICK UP HERE
-M <- cor(cameras_merger[,c(6:11)], method='spearman', use='pairwise.complete.obs')
-
-corrplot(M)
-
-corrplot(M,                              #The correlation matrix we made
-         method="color",                 # How we want the cells 
-         type="upper",                   # Just show the upper part (it is usually mirrored)
-         order="hclust",                 # Order the variables using the hclust method
-         addCoef.col = "black",          # Add coefficient of correlation  
-         tl.col="black", tl.srt=45,      # Control the text label color and rotation
-         diag=F                          # Suppress the diagonal correlations (which are 1 anyway)
-)
-
-par(mfrow=c(2,3))
-hist(cameras_elevation$elevation_m, main='Elevation', 
-     xlab='Elevation (m)', xlim=c(0,2000), breaks=seq(0,2000,50))
-
-hist(cameras_canopy$canopy_height_m, main='Canopy height',
-     xlab='Canopy height (m)', xlim=c(5,30), breaks=seq(5,30,1))
-mtext(side=3, '100 m buffers around camera locations')
-
-hist(cameras_pts_buff_forest$pct_forest, main='Forest cover', xlab='Forest cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
-
-hist(cameras_pts_buff_ag$pct_ag, main='Agriculture cover', xlab='Ag cover (prop)')
-mtext(side=3, '100 m buffers around camera locations')
-
-hist(cameras_pts_buff_current_flow$mean_current, main='Mean current', 
-     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.1))
-mtext(side=3, '100 m buffers around camera locations')
-
-hist(cameras_pts_buff_conductance$mean_conductance, main='Mean conductance', 
-     xlab='Mean conductance')#, xlim=c(0,2), breaks=seq(0,2,0.1))
-mtext(side=3, '100 m buffers around camera locations')
-
+map <- leaflet() %>%             
+  addTiles() %>%         
+  addCircleMarkers(      
+    lng=cameras$longitude, lat=cameras$latitude,
+    popup=paste(cameras$placename))
+map  
 
 #### Community (Greendale?) data ####
 # first, need independent detections summary
@@ -317,6 +171,18 @@ tmp <- long_obs %>%                   # Take the long observation data frame `lo
 
 # Add it to the sp_summary dataframe
 sp_summary <- left_join(sp_summary, tmp)
+
+# remove duplicate species
+sp_summary <- sp_summary[!duplicated(sp_summary$sp),]
+
+# deal with taxonomic revision for jaguarundi (now in its own genus)
+jaguarundi_tax <- subset(sp_summary, sp %in% c('Herpailurus.yagouaroundi','Puma.yagouaroundi'))
+jaguarundi_tax_fixed <- jaguarundi_tax[1,] #H genus is current one, so keep first row
+jaguarundi_tax_fixed$count <- sum(jaguarundi_tax$count) #then get total counts for both species designations (actually one species)
+
+sp_summary <- subset(sp_summary, !(sp %in% c('Herpailurus.yagouaroundi','Puma.yagouaroundi')))
+sp_summary <- rbind.data.frame(sp_summary, jaguarundi_tax_fixed)
+#write.csv(sp_summary, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/", "species_list_traits.csv"), row.names = F)
 
 ## 8.2.2: Raw occupancy (whether something was detected or not)
 # We use the mutate function to mutate the column
@@ -444,7 +310,7 @@ corrplot(M, method="color",
 
 ## Other covariates
 total_binary$Richness <- rowSums(total_binary[,c(3:ncol(total_binary))])
-total_detections <- rowSums(total_obs[,c(3:31)])
+total_detections <- rowSums(total_obs[,c(3:(ncol(total_obs)-4))])
 
 happy_data <- merge(total_binary, cameras_merger, by='placename')
 happy_data$total_detections <- total_detections
@@ -506,30 +372,11 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 terra::plot(subset(cameras_pts, cameras_pts$placename %in% tapir$placename), add=T, col='gold')
 
-puma <- subset(happy_data, Puma.concolor==1)
-terra::plot(AmistOsa, main='Puma')
+jaguar <- subset(happy_data, Panthera.onca==1)
+terra::plot(AmistOsa, main='Jaguar')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% puma$placename), add=T, col='gold', legend=T)
-#legend('topright', legend=c('Yes','No'), pch=c(20,20), col=c('gold','black'))
-
-ocelot <- subset(happy_data, Leopardus.pardalis==1)
-terra::plot(AmistOsa, main='Ocelot')
-terra::plot(protected_areas_dissolved, add=T, col='gray80')
-terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% ocelot$placename), add=T, col='gold')
-
-margay <- subset(happy_data, Leopardus.wiedii==1)
-terra::plot(AmistOsa, main='Margay')
-terra::plot(protected_areas_dissolved, add=T, col='gray80')
-terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% margay$placename), add=T, col='gold')
-
-jaguarundi <- subset(happy_data, Herpailurus.yagouaroundi==1)
-terra::plot(AmistOsa, main='Jaguarundi')
-terra::plot(protected_areas_dissolved, add=T, col='gray80')
-terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguarundi$placename), add=T, col='gold')
+terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguar$placename), add=T, col='gold')
 
 whitelipped <- subset(happy_data, Tayassu.pecari==1)
 terra::plot(AmistOsa, main='White-lipped peccary')
@@ -543,11 +390,43 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 terra::plot(subset(cameras_pts, cameras_pts$placename %in% collared$placename), add=T, col='gold')
 
-jaguar <- subset(happy_data, Panthera.onca==1)
-terra::plot(AmistOsa, main='Jaguar')
+puma <- subset(happy_data, Puma.concolor==1)
+terra::plot(AmistOsa, main='Puma')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% collared$placename), add=T, col='gold')
+terra::plot(subset(cameras_pts, cameras_pts$placename %in% puma$placename), add=T, col='gold', legend=T)
+#legend('topright', legend=c('Yes','No'), pch=c(20,20), col=c('gold','black'))
+
+curassow <- subset(happy_data, Crax.rubra==1)
+terra::plot(AmistOsa, main='Great curassow')
+terra::plot(protected_areas_dissolved, add=T, col='gray80')
+terra::plot(cameras_pts, add=T, col='black')
+terra::plot(subset(cameras_pts, cameras_pts$placename %in% curassow$placename), add=T, col='gold')
+
+paca <- subset(happy_data, Cuniculus.paca==1)
+terra::plot(AmistOsa, main='Paca')
+terra::plot(protected_areas_dissolved, add=T, col='gray80')
+terra::plot(cameras_pts, add=T, col='black')
+terra::plot(subset(cameras_pts, cameras_pts$placename %in% paca$placename), add=T, col='gold')
+
+
+# ocelot <- subset(happy_data, Leopardus.pardalis==1)
+# terra::plot(AmistOsa, main='Ocelot')
+# terra::plot(protected_areas_dissolved, add=T, col='gray80')
+# terra::plot(cameras_pts, add=T, col='black')
+# terra::plot(subset(cameras_pts, cameras_pts$placename %in% ocelot$placename), add=T, col='gold')
+# 
+# margay <- subset(happy_data, Leopardus.wiedii==1)
+# terra::plot(AmistOsa, main='Margay')
+# terra::plot(protected_areas_dissolved, add=T, col='gray80')
+# terra::plot(cameras_pts, add=T, col='black')
+# terra::plot(subset(cameras_pts, cameras_pts$placename %in% margay$placename), add=T, col='gold')
+# 
+# jaguarundi <- subset(happy_data, Herpailurus.yagouaroundi==1)
+# terra::plot(AmistOsa, main='Jaguarundi')
+# terra::plot(protected_areas_dissolved, add=T, col='gray80')
+# terra::plot(cameras_pts, add=T, col='black')
+# terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguarundi$placename), add=T, col='gold')
 
 
 ## 9.3: Sampling unit based accumulation curves
@@ -717,222 +596,412 @@ ggplot(cameras_mapping) +
 
 
 #### OLD Analysis of detection data ####
-length(unique(cameras$deployment_id))
-images[images == ""] <- NA  #convert blanks to NA
-
-# get rid of rows with "remove" (intended for removal, but couldn't be once uploaded)
-images <- images %>% 
-  dplyr::filter(!grepl('remove', deployment_id))
-
-# get species as genus - species
-images$SpeciesName <- paste0(images$genus, ' ', images$species)
-
-# remove rows that just say "Animal" in common_name column
-images <- images %>% 
-  dplyr::filter(!grepl('Animal', common_name))
-
-# what about duplicate images?
-# seems that duplicate images are OK - they contain muliple species detected, so they have multiple rows
-length(unique(images$image_id))
-
-# deal with dates
-images$Date <- as.Date(images$timestamp)
-images$Year <- year(images$Date)
-images$Month <- month(images$Date, label=T, abbr=T)
-
-# test <- images %>%
-#   filter(duplicated(.[["image_id"]]))
-# dd <- subset(images, filename=='07020174.JPG')
-# zz <- subset(images, filename=='07020087.JPG')
-# xx <- subset(images, filename=='07020130.JPG')
-
-## Summarize detection data per camera site
-cam_summary <- images %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nDetections = n(),
-                   nSpecies = n_distinct(species),
-                   nGenus = n_distinct(genus),
-                   nFamily = n_distinct(family),
-                   nOrder = n_distinct(order),
-                   nClass = n_distinct(class)) %>%
-  as.data.frame()
-summary(cam_summary)
-
-hist(cam_summary$nDetections, main='Total detections', xlab='Number of detections')
-hist(cam_summary$nSpecies, main='Species', xlab='Number of species')
-hist(cam_summary$nGenus, main='Genera', xlab='Number of genera')
-hist(cam_summary$nFamily, main='Families', xlab='Number of familes')
-hist(cam_summary$nOrder, main='Orders', xlab='Number of orders')
-hist(cam_summary$nClass, main='Classes', xlab='Number of classes')
-
-## mammals by site
-mammal_summary <- subset(images, class=='Mammalia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nMammalSpecies = n_distinct(species),
-                   nMammalGenus = n_distinct(genus),
-                   nMammalFamily = n_distinct(family),
-                   nMammalOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(mammal_summary)
-
-## birds by site
-bird_summary <- subset(images, class=='Aves') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nBirdSpecies = n_distinct(species),
-                   nBirdGenus = n_distinct(genus),
-                   nBirdFamily = n_distinct(family),
-                   nBirdOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(bird_summary)
-
-## reptiles by site
-reptile_summary <- subset(images, class=='Reptilia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nReptileSpecies = n_distinct(species),
-                   nReptileGenus = n_distinct(genus),
-                   nReptileFamily = n_distinct(family),
-                   nReptileOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(reptile_summary)
-
-## Amphibians by site
-amphibian_summary <- subset(images, class=='Amphibia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nAmphibianSpecies = n_distinct(species),
-                   nAmphibianGenus = n_distinct(genus),
-                   nAmphibianFamily = n_distinct(family),
-                   nAmphibianOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(amphibian_summary)
-
-## Amphibians by site
-amphibian_summary <- subset(images, class=='Reptilia') %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nAmphibianSpecies = n_distinct(species),
-                   nAmphibianGenus = n_distinct(genus),
-                   nAmphibianFamily = n_distinct(family),
-                   nAmphibianOrder = n_distinct(order)) %>%
-  as.data.frame()
-summary(amphibian_summary)
-
-class_list <- list(mammal_summary, bird_summary, reptile_summary, amphibian_summary, insect_summary)
-class_summary <- Reduce(function(x, y) merge(x, y, all=T), class_list)
-
-# Merge camera site attributes to camera summaries by site
-cameras_attributes <- merge(cameras_merger, cam_summary, by='deployment_id', all=F)
-cameras_attributes <- merge(cameras_attributes, class_summary, by='deployment_id', all=T)
-
-plot(nSpecies ~ mean_current, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nSpecies, cameras_attributes$mean_current,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ pct_forest, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nSpecies, cameras_attributes$pct_forest,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ elevation, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nSpecies, cameras_attributes$elevation,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ canopy_height, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nSpecies, cameras_attributes$canopy_height,
-         use='pairwise.complete.obs', method='spearman')
-plot(nSpecies ~ pct_ag, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nSpecies, cameras_attributes$pct_ag,
-         use='pairwise.complete.obs', method='spearman')
-
-plot(nMammalSpecies ~ mean_current, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$mean_current,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ pct_forest, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$pct_forest,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ elevation, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$elevation,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ canopy_height, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$canopy_height,
-         use='pairwise.complete.obs', method='spearman')
-plot(nMammalSpecies ~ pct_ag, data=cameras_attributes, pch=20)
-cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$pct_ag,
-         use='pairwise.complete.obs', method='spearman')
-
-# Map species data
-# lonn <- cameras_attributes$longitude
-# latt <- cameras_attributes$latitude
-# lonnlatt <- cbind(lonn, latt)
+# length(unique(cameras$deployment_id))
+# images[images == ""] <- NA  #convert blanks to NA
 # 
-# cameras_attributes_pts <- terra::vect(lonnlatt, crs=crdref)
-# cameras_attributes_pts <- terra::project(cameras_attributes_pts, "EPSG:31971")
+# # get rid of rows with "remove" (intended for removal, but couldn't be once uploaded)
+# images <- images %>% 
+#   dplyr::filter(!grepl('remove', deployment_id))
+# 
+# # get species as genus - species
+# images$SpeciesName <- paste0(images$genus, ' ', images$species)
+# 
+# # remove rows that just say "Animal" in common_name column
+# images <- images %>% 
+#   dplyr::filter(!grepl('Animal', common_name))
+# 
+# # what about duplicate images?
+# # seems that duplicate images are OK - they contain muliple species detected, so they have multiple rows
+# length(unique(images$image_id))
+# 
+# # deal with dates
+# images$Date <- as.Date(images$timestamp)
+# images$Year <- year(images$Date)
+# images$Month <- month(images$Date, label=T, abbr=T)
+# 
+# # test <- images %>%
+# #   filter(duplicated(.[["image_id"]]))
+# # dd <- subset(images, filename=='07020174.JPG')
+# # zz <- subset(images, filename=='07020087.JPG')
+# # xx <- subset(images, filename=='07020130.JPG')
+# 
+# ## Summarize detection data per camera site
+# cam_summary <- images %>%
+#   dplyr::group_by(deployment_id) %>%
+#   dplyr::summarize(nDetections = n(),
+#                    nSpecies = n_distinct(species),
+#                    nGenus = n_distinct(genus),
+#                    nFamily = n_distinct(family),
+#                    nOrder = n_distinct(order),
+#                    nClass = n_distinct(class)) %>%
+#   as.data.frame()
+# summary(cam_summary)
+# 
+# hist(cam_summary$nDetections, main='Total detections', xlab='Number of detections')
+# hist(cam_summary$nSpecies, main='Species', xlab='Number of species')
+# hist(cam_summary$nGenus, main='Genera', xlab='Number of genera')
+# hist(cam_summary$nFamily, main='Families', xlab='Number of familes')
+# hist(cam_summary$nOrder, main='Orders', xlab='Number of orders')
+# hist(cam_summary$nClass, main='Classes', xlab='Number of classes')
+# 
+# ## mammals by site
+# mammal_summary <- subset(images, class=='Mammalia') %>%
+#   dplyr::group_by(deployment_id) %>%
+#   dplyr::summarize(nMammalSpecies = n_distinct(species),
+#                    nMammalGenus = n_distinct(genus),
+#                    nMammalFamily = n_distinct(family),
+#                    nMammalOrder = n_distinct(order)) %>%
+#   as.data.frame()
+# summary(mammal_summary)
+# 
+# ## birds by site
+# bird_summary <- subset(images, class=='Aves') %>%
+#   dplyr::group_by(deployment_id) %>%
+#   dplyr::summarize(nBirdSpecies = n_distinct(species),
+#                    nBirdGenus = n_distinct(genus),
+#                    nBirdFamily = n_distinct(family),
+#                    nBirdOrder = n_distinct(order)) %>%
+#   as.data.frame()
+# summary(bird_summary)
+# 
+# ## reptiles by site
+# reptile_summary <- subset(images, class=='Reptilia') %>%
+#   dplyr::group_by(deployment_id) %>%
+#   dplyr::summarize(nReptileSpecies = n_distinct(species),
+#                    nReptileGenus = n_distinct(genus),
+#                    nReptileFamily = n_distinct(family),
+#                    nReptileOrder = n_distinct(order)) %>%
+#   as.data.frame()
+# summary(reptile_summary)
+# 
+# ## Amphibians by site
+# amphibian_summary <- subset(images, class=='Amphibia') %>%
+#   dplyr::group_by(deployment_id) %>%
+#   dplyr::summarize(nAmphibianSpecies = n_distinct(species),
+#                    nAmphibianGenus = n_distinct(genus),
+#                    nAmphibianFamily = n_distinct(family),
+#                    nAmphibianOrder = n_distinct(order)) %>%
+#   as.data.frame()
+# summary(amphibian_summary)
+# 
+# ## Amphibians by site
+# amphibian_summary <- subset(images, class=='Reptilia') %>%
+#   dplyr::group_by(deployment_id) %>%
+#   dplyr::summarize(nAmphibianSpecies = n_distinct(species),
+#                    nAmphibianGenus = n_distinct(genus),
+#                    nAmphibianFamily = n_distinct(family),
+#                    nAmphibianOrder = n_distinct(order)) %>%
+#   as.data.frame()
+# summary(amphibian_summary)
+# 
+# class_list <- list(mammal_summary, bird_summary, reptile_summary, amphibian_summary, insect_summary)
+# class_summary <- Reduce(function(x, y) merge(x, y, all=T), class_list)
+# 
+# # Merge camera site attributes to camera summaries by site
+# cameras_attributes <- merge(cameras_merger, cam_summary, by='deployment_id', all=F)
+# cameras_attributes <- merge(cameras_attributes, class_summary, by='deployment_id', all=T)
+# 
+# plot(nSpecies ~ mean_current, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nSpecies, cameras_attributes$mean_current,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nSpecies ~ pct_forest, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nSpecies, cameras_attributes$pct_forest,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nSpecies ~ elevation, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nSpecies, cameras_attributes$elevation,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nSpecies ~ canopy_height, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nSpecies, cameras_attributes$canopy_height,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nSpecies ~ pct_ag, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nSpecies, cameras_attributes$pct_ag,
+#          use='pairwise.complete.obs', method='spearman')
+# 
+# plot(nMammalSpecies ~ mean_current, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$mean_current,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nMammalSpecies ~ pct_forest, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$pct_forest,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nMammalSpecies ~ elevation, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$elevation,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nMammalSpecies ~ canopy_height, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$canopy_height,
+#          use='pairwise.complete.obs', method='spearman')
+# plot(nMammalSpecies ~ pct_ag, data=cameras_attributes, pch=20)
+# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$pct_ag,
+#          use='pairwise.complete.obs', method='spearman')
+# 
+# # Map species data
+# # lonn <- cameras_attributes$longitude
+# # latt <- cameras_attributes$latitude
+# # lonnlatt <- cbind(lonn, latt)
+# # 
+# # cameras_attributes_pts <- terra::vect(lonnlatt, crs=crdref)
+# # cameras_attributes_pts <- terra::project(cameras_attributes_pts, "EPSG:31971")
+# 
+# cameras_pts$deployment_id <- cameras$deployment_id
+# cameras_attributes_pts <- merge(cameras_pts, cameras_attributes, by='deployment_id', all=F)
+# 
+# plot(AmistOsa)
+# plot(cameras_attributes_pts, "nSpecies", col=heat.colors(5, rev=T), add=T)
+# 
+# ## Analyze detections by class (i.e., mammals, birds)
+# detections_by_class <- images %>% 
+#   dplyr::count(class) %>%
+#   as.data.frame()
+# detections_by_class$pct <- (detections_by_class$n/sum(detections_by_class$n))*100
+# pie_data <- detections_by_class %>%
+#   arrange(desc(n)) %>%
+#   mutate(lab.ypos = cumsum(pct) - 0.5*pct)
+# pie_data
+# pie_data$class_fac <- as.factor(pie_data$class)
+# pie_data$class_fac <- factor(pie_data$class_fac, levels=c('Mammalia','Aves','No CV Result','Amphibia','Reptilia','Insecta'))
+# roundedpct <- round(pie_data$pct, 1)
+# mylabs <- paste0(pie_data$class_fac, ' (', roundedpct, '%)')
+# mycols <- c("forestgreen","darkgoldenrod1","royalblue",
+#             'purple','gray80','firebrick')
+# 
+# ggplot(pie_data, aes(x = "", y = pct, fill = class_fac)) +
+#   geom_bar(width = 1, stat = "identity", color = "white") +
+#   coord_polar("y", start = 0)+
+#   scale_fill_manual(values = mycols, labels=mylabs, name='Class') +
+#   ggtitle("Detections by class") +
+#   theme_void()+
+#   theme(plot.title = element_text(hjust = 0.8))
+# 
+# 
+# # trying to produce map, but may ultimately be better in Q
+# ggplot(cameras_attributes_pts) +
+#   geom_spatvector(data=AmistOsa, fill='white')+
+#   geom_spatvector(data=protected_areas)+
+#   geom_spatvector(data=top5_LCP)+
+#   geom_spatvector(aes(color=nSpecies))+
+#   theme_classic()
+# 
+# ggplot(cameras_attributes_pts) +
+#   geom_spatvector(data=AmistOsa, fill='white')+
+#   geom_spatvector(data=protected_areas)+
+#   geom_spatvector(data=top5_LCP)+
+#   geom_spatvector(aes(color=nMammalSpecies))+
+#   theme_classic()
+# 
+# ggplot(cameras_attributes_pts) +
+#   geom_spatvector(data=AmistOsa, fill='white')+
+#   geom_spatvector(data=protected_areas)+
+#   geom_spatvector(data=top5_LCP)+
+#   geom_spatvector(aes(color=nBirdSpecies))+
+#   theme_classic()
+# 
+# ## Where are the tapirs??
+# bio_data <- images[,c(2,9:14,28)]
+# tapir <- subset(bio_data, SpeciesName =='Tapirus bairdii')
+# 
+# tapir_bySite <- tapir %>%
+#   dplyr::group_by(deployment_id) %>%
+#   dplyr::summarize(nTapir = n()) %>%
+#   as.data.frame()
+# 
+# tapir_pts <- merge(cameras_attributes_pts, tapir_bySite, by='deployment_id', all=F)
+# 
+# ggplot(tapir_pts) +
+#   geom_spatvector(data=AmistOsa, fill='white')+
+#   geom_spatvector(data=protected_areas)+
+#   geom_spatvector(data=top5_LCP)+
+#   geom_spatvector(aes(color=nTapir))+
+#   theme_classic()+
+#   ggtitle('Tapir')
 
-cameras_pts$deployment_id <- cameras$deployment_id
-cameras_attributes_pts <- merge(cameras_pts, cameras_attributes, by='deployment_id', all=F)
 
-plot(AmistOsa)
-plot(cameras_attributes_pts, "nSpecies", col=heat.colors(5, rev=T), add=T)
+#### Extract some basic data from camera trap locations ####
+cameras_elevation <- terra::extract(DEM, cameras_pts, na.rm=T)
+names(cameras_elevation) <- c('ID','elevation_m')
 
-## Analyze detections by class (i.e., mammals, birds)
-detections_by_class <- images %>% 
-  dplyr::count(class) %>%
+# cameras_canopy <- terra::extract(canopy, cameras_pts, na.rm=T)
+# names(cameras_canopy) <- c('ID','canopy_height_m')
+
+## create buffer for % forest (or other stuff)
+buff_dist <- 100 #meters
+
+cameras_pts_buff <- terra::buffer(cameras_pts, buff_dist)
+
+## Percent forest
+cameras_pts_buff_forest <- terra::extract(forest, cameras_pts_buff, fun='table', na.rm=T)
+names(cameras_pts_buff_forest) <- c('ID','nForestCells')
+
+cameras_pts_buff_forest$forest_areasqm <- cameras_pts_buff_forest$nForestCells*100
+cameras_pts_buff_forest$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
+cameras_pts_buff_forest$pct_forest <- cameras_pts_buff_forest$forest_areasqm/cameras_pts_buff_forest$buffer_areasqm
+cameras_pts_buff_forest$pct_forest <- ifelse(cameras_pts_buff_forest$pct_forest > 1, 1, cameras_pts_buff_forest$pct_forest)
+
+## Forest patches in buffer
+forest_patches$patch_areasqkm <- terra::expanse(forest_patches, unit='km')
+cameras_pts_buff_forest_patches <- terra::intersect(cameras_pts_buff, forest_patches)
+cameras_pts_buff_forest_patches_df <- as.data.frame(cameras_pts_buff_forest_patches)
+cameras_pts_buff_forest_patches_summary <- cameras_pts_buff_forest_patches_df[,c('placename','patch_areasqkm')] %>%
+  dplyr::group_by(placename) %>%
+  dplyr::summarize(nForestPatches=n(),
+                   minForestPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianForestPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanForestPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxForestPatchArea=max(patch_areasqkm, na.rm=T)) %>%
   as.data.frame()
-detections_by_class$pct <- (detections_by_class$n/sum(detections_by_class$n))*100
-pie_data <- detections_by_class %>%
-  arrange(desc(n)) %>%
-  mutate(lab.ypos = cumsum(pct) - 0.5*pct)
-pie_data
-pie_data$class_fac <- as.factor(pie_data$class)
-pie_data$class_fac <- factor(pie_data$class_fac, levels=c('Mammalia','Aves','No CV Result','Amphibia','Reptilia','Insecta'))
-roundedpct <- round(pie_data$pct, 1)
-mylabs <- paste0(pie_data$class_fac, ' (', roundedpct, '%)')
-mycols <- c("forestgreen","darkgoldenrod1","royalblue",
-            'purple','gray80','firebrick')
 
-ggplot(pie_data, aes(x = "", y = pct, fill = class_fac)) +
-  geom_bar(width = 1, stat = "identity", color = "white") +
-  coord_polar("y", start = 0)+
-  scale_fill_manual(values = mycols, labels=mylabs, name='Class') +
-  ggtitle("Detections by class") +
-  theme_void()+
-  theme(plot.title = element_text(hjust = 0.8))
+summary(cameras_pts_buff_forest_patches_summary)
+hist(cameras_pts_buff_forest_patches_summary$meanForestPatchArea, main='Mean forest patch area in buffer', xlab='sq km')
+
+# join back empty rows
+cameras_pts_buff_forest_patches_summary <- merge(cameras, cameras_pts_buff_forest_patches_summary, by='placename', all=T)
+cameras_pts_buff_forest_patches_summary <- cameras_pts_buff_forest_patches_summary[,c(1,6:10)]
+
+## Canopy height
+cameras_canopy <- terra::extract(canopy, cameras_pts_buff, na.rm=T, fun='mean')
+names(cameras_canopy) <- c('ID','canopy_height_m')
+
+## Core forest
+#forest_patch_core <- lsm_p_core(forest, directions=8, edge_depth=10)
+forest_core_raster <- terra::rasterize(forest_core, forest, values=1, fun='mean')
+cameras_pts_buff_forest_core <- terra::extract(forest_core_raster, cameras_pts_buff, fun='table', na.rm=T)
+names(cameras_pts_buff_forest_core) <- c('ID','nForestCoreCells')
+
+cameras_pts_buff_forest_core$coreforest_areasqm <- cameras_pts_buff_forest_core$nForestCoreCells*100
+cameras_pts_buff_forest_core$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
+cameras_pts_buff_forest_core$pct_forest_core <- cameras_pts_buff_forest_core$coreforest_areasqm/cameras_pts_buff_forest_core$buffer_areasqm
+cameras_pts_buff_forest_core$pct_forest_core <- ifelse(cameras_pts_buff_forest_core$pct_forest_core > 1, 1, cameras_pts_buff_forest_core$pct_forest_core)
 
 
-# trying to produce map, but may ultimately be better in Q
-ggplot(cameras_attributes_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nSpecies))+
-  theme_classic()
+## Ag
+cameras_pts_buff_ag <- terra::extract(ag, cameras_pts_buff, fun='table', na.rm=T)
+names(cameras_pts_buff_ag) <- c('ID','nAgCells')
 
-ggplot(cameras_attributes_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nMammalSpecies))+
-  theme_classic()
+cameras_pts_buff_ag$ag_areasqm <- cameras_pts_buff_ag$nAgCells*100
+cameras_pts_buff_ag$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
+cameras_pts_buff_ag$pct_ag <- cameras_pts_buff_ag$ag_areasqm/cameras_pts_buff_ag$buffer_areasqm
+cameras_pts_buff_ag$pct_ag <- ifelse(cameras_pts_buff_ag$pct_ag > 1, 1, cameras_pts_buff_ag$pct_ag)
 
-ggplot(cameras_attributes_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nBirdSpecies))+
-  theme_classic()
-
-## Where are the tapirs??
-bio_data <- images[,c(2,9:14,28)]
-tapir <- subset(bio_data, SpeciesName =='Tapirus bairdii')
-
-tapir_bySite <- tapir %>%
-  dplyr::group_by(deployment_id) %>%
-  dplyr::summarize(nTapir = n()) %>%
+## Ag patches in buffer
+ag_patches$patch_areasqkm <- terra::expanse(ag_patches, unit='km')
+cameras_pts_buff_ag_patches <- terra::intersect(cameras_pts_buff, ag_patches)
+cameras_pts_buff_ag_patches_df <- as.data.frame(cameras_pts_buff_ag_patches)
+cameras_pts_buff_ag_patches_summary <- cameras_pts_buff_ag_patches_df[,c('placename','patch_areasqkm')] %>%
+  dplyr::group_by(placename) %>%
+  dplyr::summarize(nAgPatches=n(),
+                   minAgPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianAgPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanAgPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxAgPatchArea=max(patch_areasqkm, na.rm=T)) %>%
   as.data.frame()
 
-tapir_pts <- merge(cameras_attributes_pts, tapir_bySite, by='deployment_id', all=F)
+summary(cameras_pts_buff_ag_patches_summary)
+hist(cameras_pts_buff_ag_patches_summary$meanAgPatchArea, main='Mean ag patch area in buffer', xlab='sq km')
 
-ggplot(tapir_pts) +
-  geom_spatvector(data=AmistOsa, fill='white')+
-  geom_spatvector(data=protected_areas)+
-  geom_spatvector(data=top5_LCP)+
-  geom_spatvector(aes(color=nTapir))+
-  theme_classic()+
-  ggtitle('Tapir')
+# join back empty rows
+cameras_pts_buff_ag_patches_summary <- merge(cameras, cameras_pts_buff_ag_patches_summary, by='placename', all=T)
+cameras_pts_buff_ag_patches_summary <- cameras_pts_buff_ag_patches_summary[,c(1,6:10)]
+
+## Current flow
+cameras_pts_buff_current_flow <- terra::extract(current_flow, cameras_pts_buff, fun='mean', na.rm=T)
+names(cameras_pts_buff_current_flow) <- c('ID','mean_current')
+
+## Conductance
+cameras_pts_buff_conductance <- terra::extract(conductance, cameras_pts_buff, fun='mean', na.rm=T)
+names(cameras_pts_buff_conductance) <- c('ID','mean_conductance')
+
+# Located in protected area?
+protected_cameras <- terra::intersect(cameras_pts, protected_areas)
+protected_cameras_df <- as.data.frame(protected_cameras)
+protected_cameras_df$Protected <- 'Yes'
+protected_cameras_df <- protected_cameras_df[,c('placename','Protected')]
+
+## Roads
+# Note: since buffers are small, currently most have 0 roads and some 1, 
+# which makes a road density calculation wonky. Could increase buffer size.
+cameras_pts_buff_roads <- terra::intersect(cameras_pts_buff, roads)
+cameras_pts_buff_roads_df <- as.data.frame(cameras_pts_buff_roads)
+cameras_pts_buff_roads_summary <- cameras_pts_buff_roads_df[,c('placename','TIPO')] %>%
+  dplyr::group_by(placename) %>%
+  dplyr::summarize(nTotalRoads=n()) %>%
+  as.data.frame()
+cameras_pts_buff_roads_summary <- merge(cameras_pts_buff_roads_summary, cameras[,c(1:2)], by='placename', all=T)
+cameras_pts_buff_roads_summary <- cameras_pts_buff_roads_summary[,c(1:2)]
+cameras_pts_buff_roads_summary[is.na(cameras_pts_buff_roads_summary)] <- 0
+cameras_pts_buff_roads_summary$bufferareasqkm <- terra::expanse(cameras_pts_buff, unit='km')
+cameras_pts_buff_roads_summary$nRoads_persqkm <- cameras_pts_buff_roads_summary$nTotalRoads/cameras_pts_buff_roads_summary$bufferareasqkm
 
 
+# Assemble dataframe of attributes to join to image data
+cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_pts_buff_ag[,c(2,3,5)], cameras_pts_buff_ag_patches_summary[,c(2,5)],
+                            cameras_pts_buff_forest[,c(2,3,5)], cameras_pts_buff_forest_core[,c(2,3,5)],
+                            cameras_pts_buff_forest_patches_summary[,c(2,5)], 
+                            cameras_pts_buff_current_flow, cameras_pts_buff_conductance, cameras_pts_buff_roads_summary[,c(2,4)])
+cameras_merger <- do.call(cbind.data.frame, cameras_merger_list)
+#cameras_merger <- cameras_merger %>% select(-matches('ID'))
+cameras_merger <- merge(cameras_merger, protected_cameras_df, by='placename', all=T)
+cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,24,26:29)] #get rid of replicated ID columns
+# replace NA in protected with "No" to indicate not protected
+cameras_merger[c("Protected")][is.na(cameras_merger[c("Protected")])] <- 'No'
+table(cameras_merger$Protected)
 
+# in case any NAs still need to be converted to true 0s
+cameras_merger[is.na(cameras_merger)] <- 0
+
+#write.csv(cameras_merger, file='Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes.csv', row.names=F)
+
+## Correlations among potential predictors
+M <- cor(cameras_merger[,c(6:14, 17:18)], method='spearman', use='pairwise.complete.obs')
+
+par(mfrow=c(1,1))
+corrplot(M)
+
+corrplot(M,                              #The correlation matrix we made
+         method="color",                 # How we want the cells 
+         type="upper",                   # Just show the upper part (it is usually mirrored)
+         order="hclust",                 # Order the variables using the hclust method
+         addCoef.col = "black",          # Add coefficient of correlation  
+         tl.col="black", tl.srt=45,      # Control the text label color and rotation
+         diag=F                          # Suppress the diagonal correlations (which are 1 anyway)
+)
+
+par(mfrow=c(2,6), mai = c(1, 0.1, 0.1, 0.1))
+hist(cameras_merger$elevation_m, main='Elevation', 
+     xlab='Elevation (m)', xlim=c(0,2000), breaks=seq(0,2000,50))
+
+hist(cameras_merger$canopy_height_m, main='Canopy height',
+     xlab='Canopy height (m)', xlim=c(0,30), breaks=seq(0,30,1))
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$pct_forest, main='Forest cover', xlab='Forest cover (prop)')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$pct_forest_core, main='Core forest cover', xlab='Core forest cover (prop)')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$nForestPatches, main='Forest patches', xlab='Forest patches')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$meanForestPatchArea, main='Forest patch area', xlab='sq km')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$pct_ag, main='Agriculture cover', xlab='Ag cover (prop)')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$nAgPatches, main='Agriculture patches', xlab='Ag patches')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$meanAgPatchArea, main='Ag patch area', xlab='sq km')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$nTotalRoads, main='Total roads', xlab='Roads')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$nRoads_persqkm, main='Road density', xlab='Roads per sq km')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$mean_current, main='Mean current',
+     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.1))
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$mean_conductance, main='Mean conductance',
+     xlab='Mean conductance')#, xlim=c(0,2), breaks=seq(0,2,0.1))
+#mtext(side=3, '100 m buffers around camera locations')
