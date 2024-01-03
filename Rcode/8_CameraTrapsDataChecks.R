@@ -1,6 +1,6 @@
 ##################### AmistOsa camera traps: data checks ##########################
 # Date: 12-12-23
-# updated: 12-14-23
+# updated: 1-2-24: add new OSAGRID data
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -26,6 +26,7 @@ lapply(list.of.packages, require, character.only = TRUE)
 # also
 library(terra)
 library(tidyterra)
+library(stringr)
 
 #### Input data ####
 setwd("C:/Users/immccull/Documents/AmistOsa")
@@ -39,6 +40,12 @@ deployments <- read.csv("Data/spatial/CameraTraps/wildlife-insights/deployments.
 images <- read.csv("Data/spatial/CameraTraps/wildlife-insights/images_2003884.csv")
 cameras <- read.csv("Data/spatial/CameraTraps/wildlife-insights/cameras.csv")
 projects <- read.csv("Data/spatial/CameraTraps/wildlife-insights/projects.csv")
+
+# Osa grid additional data to incorporate
+# note column names differ in image datasets
+dep2 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/OSAGRID/dep.csv")
+img2 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/OSAGRID/img.csv")
+sp_list2 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/OSAGRID/sp_list.csv")
 
 # DEM
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
@@ -63,20 +70,35 @@ top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_t
 # Preliminary cleanup: images dataset needs placename column
 # remove rows with "remove" in deployment_id name (records slated for removal anyway)
 images <- images[!grepl("(remove)", images$deployment_id),] 
+img2 <- img2[!grepl("(remove)", img2$deployment_id),] 
 deployments <- deployments[!grepl("(remove)", deployments$deployment_id),] 
 duplicated(deployments$deployment_id)
+dep2 <- dep2[!grepl("(remove)", dep2$deployment_id),] 
+duplicated(dep2$deployment_id)
 
 #deployments$roww <- seq(1,nrow(deployments), 1)
 # found OCCT06_M103_9112022 as duplicated
 # only keep distinct rows based on deployment_id
 deployments <- deployments %>%
   dplyr::distinct(deployment_id, .keep_all = TRUE)
+dep2 <- dep2 %>%
+  dplyr::distinct(deployment_id, .keep_all = TRUE)
 
 # but even this still yields 14 placenames not in both deployment and image datasets
 deployments_placenames <- deployments[,c('deployment_id','placename')]
-
 images <- left_join(images, deployments_placenames, by='deployment_id', relationship='many-to-many')
 sum(is.na(images$placename))
+
+# this step does initially not work with OSAGRID data (no placename column)
+#test <- str_split_i(img2$deployment_id, pattern='_', i=1)
+#img2$placename <- str_split_i(img2$deployment_id, pattern='_', i=1)
+dep2$placename <- str_split_i(dep2$deployment_id, pattern='_', i=1)
+
+dep2_placenames <- dep2[,c('deployment_id','placename')]
+img2 <- left_join(img2, dep2_placenames, by='deployment_id', relationship='many-to-many')
+sum(is.na(img2$placename))
+
+
 #missing <- subset(images, is.na(images$placename==T)) #all rows slated for removal
 
 # Starting with Ch 5 of Chris' tutorial: https://wildcolab.github.io/Introduction-to-Camera-Trap-Data-Management-and-Analysis-in-R/error-checking.html
@@ -88,8 +110,20 @@ deployments$days <- interval(deployments$start_date, deployments$end_date)/ddays
 summary(deployments$days)
 hist(deployments$days)
 
+dep2$start_date <- as.Date(dep2$start_date) #lubridate functions weren't working
+dep2$end_date <- as.Date(dep2$end_date)
+dep2$days <- interval(dep2$start_date, dep2$end_date)/ddays(1)
+summary(dep2$days)
+hist(dep2$days)
+
+
 # displays NA rows (none in this case)
 deployments[is.na(deployments$days)==T,] %>% 
+  kbl() %>% 
+  kable_styling(full_width = T) %>% 
+  kableExtra::scroll_box(width = "100%")
+
+dep2[is.na(dep2$days)==T,] %>% 
   kbl() %>% 
   kable_styling(full_width = T) %>% 
   kableExtra::scroll_box(width = "100%")
@@ -97,6 +131,10 @@ deployments[is.na(deployments$days)==T,] %>%
 images$timestamp <- ymd_hms(images$timestamp)
 range(images$timestamp) #check range of timestamps (can't have data from 2024 or 27 yet...these fixed, but data from 2015-2019 may also be errors)
 table(is.na(images$timestamp)) #NA check
+
+img2$timestamp <- ymd_hms(img2$timestamp)
+range(img2$timestamp) #check range of timestamps (can't have data from 2024 or 27 yet...these fixed, but data from 2015-2019 may also be errors)
+table(is.na(img2$timestamp)) #NA check
 
 ## analyze records with suspicious timestamps (2015-2019)
 images$year <- year(images$timestamp)
@@ -122,9 +160,21 @@ images$keep <- ifelse(images$year > year(images$end_date), 'No', images$keep)
 table(images$keep)
 images <- subset(images, keep=='Yes')
 
+# Clean Osa grid data
+# images: remove unwanted species
+img2 <- subset(img2, !(common_name %in% c('nothing','dog','people','cat_domestic','cow','horse','uid')))
+
+# deployments: for now, remove rows with NA for days (mostly due to unknown end date; could amend later)
+# also remove rows with missing lat or long
+dep2 <- dep2[!is.na(dep2$days),]
+dep2 <- dep2[!is.na(dep2$latitude),]
+dep2 <- dep2[!is.na(dep2$longitude),]
+
 # Basic camera trap summaries#
 # Count the number of camera locations
 paste(length(unique(deployments$placename)), "locations"); paste(length(unique(deployments$deployment_id)), "deployments");paste(nrow(images), "image labels"); paste(nrow(images[images$is_blank == TRUE,]), "blanks")
+paste(length(unique(dep2$placename)), "locations"); paste(length(unique(dep2$deployment_id)), "deployments");paste(nrow(img2), "image labels"); paste(nrow(img2[img2$is_blank == TRUE,]), "blanks")
+
 
 ## 5.4 error checks
 # map the camera locations (however, does not appear that we have incorrect location data)
@@ -148,31 +198,71 @@ m <- leaflet() %>%
     popup=paste(deployments$placename)) # include a popup with the placename!
 m            
 
+m2 <- leaflet() %>%             
+  addTiles() %>%         
+  addCircleMarkers(      
+    lng=dep2$longitude, lat=dep2$latitude,
+    popup=paste(dep2$placename)) # include a popup with the placename!
+m2  
+
 # if had typo in a coordinate, could use this (example)
 #dep$longitude[dep$placename=="ALG069"] <- -112.5075
+
+
+## Combine 2 datasets
+img_commoncol <- base::intersect(names(images), names(img2))
+images_move <- images[,img_commoncol]
+img2_move <- img2[,img_commoncol]
+img_combined <- rbind.data.frame(images_move, img2_move)
+
+dep_commoncol <- base::intersect(names(deployments), names(dep2))
+deployments_move <- deployments[,dep_commoncol]
+dep2_move <- dep2[,dep_commoncol]
+dep_combined <- rbind.data.frame(deployments_move, dep2_move)
+
+## deal with duplicate camera trap locations/multiple cameras at same location
+length(unique(dep_combined$placename))
+length(unique(dep_combined$deployment_id))
+summary(dep_combined$days)
+
+# eliminate any cameras deployed for 0 days (can always change this threshold)
+dep_combined <- subset(dep_combined, days > 0)
+
+# eliminate duplicated camera locations by keeping longer deployment
+dep_combined <- dep_combined %>%
+  distinct(placename, longitude, latitude, days, .keep_all=T)
+dep_combined <- dep_combined %>% 
+  group_by(placename) %>% slice_max(days, n=1)
+
+# there may still be duplicate placenames if coordinates are slightly different
+length(unique(dep_combined$placename))
+dep_combined <- dep_combined %>%
+  group_by(placename) %>% 
+  slice_head(n=1) %>%
+  as.data.frame()
 
 # Chris 'ultimate' leaflet map:
 # First, set a single categorical variable of interest from station covariates for summary graphs. If you do not have an appropriate category use "project_id".
 category <- "feature_type"
 
 # We first convert this category to a factor with discrete levels
-deployments[,category] <- factor(deployments[,category])
+dep_combined[,category] <- factor(dep_combined[,category])
 # then use the turbo() function to assign each level a color
-col.cat <- turbo(length(levels(deployments[,category])))
+col.cat <- turbo(length(levels(dep_combined[,category])))
 # then we apply it to the dataframe
-deployments$colours <- col.cat[deployments[,category]]
+dep_combined$colours <- col.cat[dep_combined[,category]]
 
 m <- leaflet() %>%
   addProviderTiles(providers$Esri.WorldImagery, group="Satellite") %>%  
   addTiles(group="Base") %>%     # Include a basemap option too
-  addCircleMarkers(lng=deployments$longitude, lat=deployments$latitude,
+  addCircleMarkers(lng=dep_combined$longitude, lat=dep_combined$latitude,
                    # Co lour the markers depending on the 'feature type'
-                   color=deployments$colours,
+                   color=dep_combined$colours,
                    # Add a popup of the placename and feature_type together 
-                   popup=paste(deployments$placename, deployments[,category])) %>%
+                   popup=paste(dep_combined$placename, dep_combined[,category])) %>%
   
   # Add a legend explaining what is going on
-  addLegend("topleft", colors = col.cat,  labels = levels(deployments[,category]),
+  addLegend("topleft", colors = col.cat,  labels = levels(dep_combined[,category]),
             title = category,
             labFormat = labelFormat(prefix = "$"),
             opacity = 1) %>%
@@ -181,15 +271,14 @@ m <- leaflet() %>%
   addLayersControl(
     baseGroups = c("Satellite", "Base"))
 m
-unique(deployments$feature_type)
 
 ## Check distance among camera locations
 # create a list of all the non-duplicated placenames
-camera_locs <- deployments %>% 
+camera_locs <- dep_combined %>% 
   dplyr::select(placename, latitude, longitude) %>% 
   unique() %>% # remove duplicated rows (rows where the placename and coordinates match)
   st_as_sf(coords = c("longitude", "latitude"), crs = "+proj=longlat") # Convert to `sf` format
-# Check that there are no duplicated stations (OK as of now)
+# Check that there are no duplicated stations
 camera_locs[duplicated(camera_locs$placename)==T,]
 
 # distance matrix for all cameras
@@ -223,24 +312,27 @@ summary(camera_dist_list$dist)
 ## check the placenames in images are represented in deployments
 # This code returns TRUE if it is and FALSE if it isn't. We can then summarize this with table()
 # or, returns empty output if images dataframe doesn't have placename column
-table(unique(images$placename) %in% unique(deployments$placename))
+#table(unique(images$placename) %in% unique(deployments$placename))
+table(unique(img_combined$placename) %in% unique(dep_combined$placename))
 
 # check all the placenames in deployments are represented in the images data
-table(unique(deployments$placename)  %in% unique(images$placename))
+#table(unique(deployments$placename)  %in% unique(images$placename))
+table(unique(dep_combined$placename)  %in% unique(img_combined$placename))
 
-# even this still yields 19 placenames not in both deployment and image datasets
+# even this still yields placenames not in both deployment and image datasets
 # after left_joining placenames from deployments into images table
 # maybe this is OK or expected: does it mean some deployed cameras have no images?
-missing_placenames <- dplyr::anti_join(deployments, images, by='placename')
+#missing_placenames <- dplyr::anti_join(deployments, images, by='placename')
+missing_placenames <- dplyr::anti_join(dep_combined, img_combined, by='placename')
 
 ## 5.4.2 Camera activity checks
 library(plotly)
-fig <- plot_ly(data = deployments,                    # Specify your data frame
+fig <- plot_ly(data = dep_combined,                    # Specify your data frame
                x = ~longitude, y = ~latitude, # The x and y axis columns
                type="scatter")                # and the type of plot
 fig
 
-fig <- plot_ly(data = deployments,                    
+fig <- plot_ly(data = dep_combined,                    
                x = ~longitude, y = ~latitude,
                color=~feature_type,              # We can specify color categories
                type="scatter",
@@ -252,13 +344,13 @@ fig
 p <- plot_ly()
 
 # We want a separate row for each 'placename' - so lets turn it into a factor
-deployments$placename <- as.factor(deployments$placename)
+dep_combined$placename <- as.factor(dep_combined$placename)
 
 # loop through each place name
-for(i in seq_along(levels(deployments$placename)))
+for(i in seq_along(levels(dep_combined$placename)))
 {
   #Subset the data to just that placename
-  tmp <- deployments[deployments$placename==levels(deployments$placename)[i],]
+  tmp <- dep_combined[dep_combined$placename==levels(dep_combined$placename)[i],]
   # Order by date
   tmp <- tmp[order(tmp$start_date),]
   # Loop through each deployment at that placename
@@ -286,9 +378,9 @@ for(i in seq_along(levels(deployments$placename)))
 # Add a categorical y axis
 p <- p %>%   layout(yaxis = list(
   
-  ticktext = as.list(levels(deployments$placename)), 
+  ticktext = as.list(levels(dep_combined$placename)), 
   
-  tickvals = as.list(1:length(levels(deployments$placename))),
+  tickvals = as.list(1:length(levels(dep_combined$placename))),
   
   tickmode = "array"))
 p
@@ -302,9 +394,9 @@ p
 # Make a separate plot for each 20 stations For each 20 stations
 # Indeed this turns up weird timestamps from (for example) 2027
 # To do this make a plot dataframe
-tmp <- data.frame("deployment_id"=unique(deployments$deployment_id), "plot_group"=ceiling(1:length(unique(deployments$deployment_id))/20))
+tmp <- data.frame("deployment_id"=unique(dep_combined$deployment_id), "plot_group"=ceiling(1:length(unique(dep_combined$deployment_id))/20))
 
-dep_tmp <- left_join(deployments,tmp, by="deployment_id")
+dep_tmp <- left_join(dep_combined,tmp, by="deployment_id")
 
 for(i in 1:max(dep_tmp$plot_group))
 {  
@@ -321,7 +413,7 @@ for(i in 1:max(dep_tmp$plot_group))
   for(j in 1:nrow(tmp))
   {
     #Subset the image data
-    tmp_img <- images[images$deployment_id==tmp$deployment_id[j],]
+    tmp_img <- images[img_combined$deployment_id==tmp$deployment_id[j],]
     
     if(nrow(tmp_img)>0)
     {
@@ -377,7 +469,7 @@ for(i in 1:max(dep_tmp$plot_group))
 taxonomy_headings <- c("class", "order", "family", "genus", "species", "common_name")
 
 # Subset the image data to just those columns
-tmp<- images[,colnames(images)%in% taxonomy_headings]
+tmp<- img_combined[,colnames(img_combined)%in% taxonomy_headings]
 # Remove duplicates
 tmp <- tmp[duplicated(tmp)==F,]
 tmp[tmp == ""] <- NA 
@@ -416,16 +508,16 @@ sci2comm("Long-billed Hermit")
 
 ## 5.5 Diel activity check
 # First lets convert our timestamp to decimal hours
-images$hours <- hour(images$timestamp) + minute(images$timestamp)/60 + second(images$timestamp)/(60*60)
+img_combined$hours <- hour(img_combined$timestamp) + minute(img_combined$timestamp)/60 + second(img_combined$timestamp)/(60*60)
 
 # Count all of the captures
-tmp <- images %>% group_by(common_name) %>% summarize(count=n())
+tmp <- img_combined %>% group_by(common_name) %>% summarize(count=n())
 
 yform <- list(categoryorder = "array",
               categoryarray = tmp$common_name)
 
-fig <- plot_ly(x = images$hours, y = images$common_name,type="scatter",
-               height=1000, text=images$deployment_id, hoverinfo='text',
+fig <- plot_ly(x = img_combined$hours, y = img_combined$common_name,type="scatter",
+               height=1000, text=img_combined$deployment_id, hoverinfo='text',
                mode   = 'markers',
                marker = list(size = 5,
                              color = 'rgba(50, 100, 255, .2)',
@@ -440,11 +532,13 @@ fig
 # 6.5.1: Filter to target species:
 # Remove observations without animals detected, where we don't know the species, and non-mammals
 #images[images == ""] <- NA 
-images_sub <- images %>% filter(is_blank==0,                # Remove the blanks
-                          is.na(images$species)==FALSE,  # Remove classifications which don't have species 
+images_sub <- img_combined %>% filter(is_blank==0,                # Remove the blanks
+                          is.na(img_combined$species)==FALSE,  # Remove classifications which don't have species 
                           class=="Mammalia",          # Subset to mammals
                           species!="sapiens",
-                          species!='familiaris')         # Subset to anything that isn't human or domestic dog
+                          species!='familiaris',)         # Subset to anything that isn't human or domestic dog
+curassow <- subset(img_combined, common_name=='curassow_great') #extract curassow data in case need later
+images_sub <- rbind.data.frame(images_sub, curassow) 
 
 # even rows designated as not blank may have blank in species
 images_sub$species[images_sub$species==""] <- NA
@@ -458,7 +552,7 @@ length(unique(images_sub_species$common_name)) #many not at species level
 
 # 6.5.2: Create a daily camera activity lookup
 # Remove any deployments without end dates
-tmp <- deployments[is.na(deployments$end_date)==F,]
+tmp <- dep_combined[is.na(dep_combined$end_date)==F,]
 
 # Create an empty list to store our days
 daily_lookup <- list()
@@ -494,7 +588,6 @@ images_tmp <- images_sub %>%
   mutate(duration = int_length(timestamp %--% lag(timestamp))) # Calculate the gap between successive detections
 
 # Determine image independence
-library(stringr)
 # Give a random value to all cells
 images_tmp$event_id <- 9999
 
@@ -579,7 +672,7 @@ ind_dat$sp <- as.factor(ind_dat$sp)
 
 # Unique camera locations list
 #Subset the columns
-tmp <- deployments[, c("project_id", "placename", "longitude", "latitude", "feature_type")]
+tmp <- dep_combined[, c("project_id", "placename", "longitude", "latitude", "feature_type")]
 # Remove duplicated rows
 tmp <- tmp[duplicated(tmp)==F,]
 # write the file

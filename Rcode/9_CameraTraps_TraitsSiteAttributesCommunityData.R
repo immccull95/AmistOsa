@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 12-15-23
+# updated: 1-2-24
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -16,6 +16,7 @@ library(iNEXT)
 library(ggplot2)
 library(gridExtra)
 library(tidyterra)
+library(landscapemetrics)
 library(vegan) #asked to install permute package
 # This package isn't available on Cran, so we must use the remotes package
 #library(remotes)
@@ -30,13 +31,17 @@ setwd("C:/Users/immccull/Documents/AmistOsa")
 AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa_31971.shp")
 
 # Preliminary camera trap datasets (processed in 8_CameraTrapsDataChecks.R)
-species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_species_list.csv")
-cameras <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_camera_locations.csv")
+# have prefix OSAGRID but actually combined OSAGRID and 2003884 projects
+species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_species_list.csv")
 projects <- read.csv("Data/spatial/CameraTraps/wildlife-insights/projects.csv")
-total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_30min_independent_total_observations.csv", header=T)
-mon_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_30min_independent_monthly_observations.csv", header=T)
-week_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_30min_independent_weekly_observations.csv")
+total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_total_observations.csv", header=T)
+mon_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_monthly_observations.csv", header=T)
+week_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_weekly_observations.csv")
 
+# camera locations:
+cameras_osagrid <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_camera_locations.csv")
+cameras_2003884 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_camera_locations.csv")
+cameras <- rbind.data.frame(cameras_osagrid, cameras_2003884)
 
 # DEM
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
@@ -44,9 +49,16 @@ DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
 # Canopy height
 canopy <- terra::rast("Data/spatial/CanopyHeight/AmistOsa_CanopyHeight.tif")
 
-# forest
+# forest and ag
 forest <- terra::rast("Data/spatial/LandscapeStructure/AmistOsa_forest.tif")
 ag <- terra::rast("Data/spatial/LandscapeStructure/AmistOsa_ag.tif")
+
+# Forest and ag patches
+forest_patches <- terra::vect("Data/spatial/LandscapeStructure/forest_polygons.shp")
+ag_patches <- terra::vect("Data/spatial/LandscapeStructure/ag_polygons.shp")
+
+# Core forest
+forest_core <- terra::vect("Data/spatial/LandscapeStructure/forest_polygons_core_wCurrent.shp")
 
 # Current flow
 current_flow <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked.tif")
@@ -99,6 +111,18 @@ coendou_mean <- colMeans(coendou) #all same for everything but body mass, so ave
 sp_summary[sp_summary$sp=="Coendou.mexicanus", c("mass_g", "act_noct","act_crep","act_diur")] <- 
   coendou_mean[1:4]
 
+# Cebus imitator is not in the Elton database, so use mean from species in its genus
+cebus <- subset(elton_mammals, Genus=='Cebus')
+cebus <- cebus[,c("BodyMass.Value", "Activity.Nocturnal", "Activity.Crepuscular", "Activity.Diurnal")]
+cebus_mean <- colMeans(cebus) #all same for everything but body mass, so averaging has no effect for those
+
+sp_summary[sp_summary$sp=="Cebus.imitator", c("mass_g", "act_noct","act_crep","act_diur")] <- 
+  cebus_mean[1:4]
+
+# great curassow is not a mammal, so fill in its body mass
+# https://eol.org/pages/45508958/articles 
+sp_summary[1,8] <- 8.7
+
 #write.csv(sp_summary, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/", projects$project_id[1],"_species_list_traits.csv"), row.names = F)
 
 ## Camera trap location site attributes
@@ -106,8 +130,8 @@ sp_summary[sp_summary$sp=="Coendou.mexicanus", c("mass_g", "act_noct","act_crep"
 crdref <- "EPSG:4326" #I think this is the right one
 
 # get rid of duplicate locations
-cameras <- cameras[,c(2:4)] %>%
-  dplyr::distinct()
+cameras <- cameras %>%
+  dplyr::distinct(placename, longitude, latitude, .keep_all=T)
 
 lat <- cameras$latitude
 lon <- cameras$longitude
@@ -133,6 +157,7 @@ buff_dist <- 100 #meters
 
 cameras_pts_buff <- terra::buffer(cameras_pts, buff_dist)
 
+## Percent forest
 cameras_pts_buff_forest <- terra::extract(forest, cameras_pts_buff, fun='table', na.rm=T)
 names(cameras_pts_buff_forest) <- c('ID','nForestCells')
 
@@ -141,10 +166,43 @@ cameras_pts_buff_forest$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit=
 cameras_pts_buff_forest$pct_forest <- cameras_pts_buff_forest$forest_areasqm/cameras_pts_buff_forest$buffer_areasqm
 cameras_pts_buff_forest$pct_forest <- ifelse(cameras_pts_buff_forest$pct_forest > 1, 1, cameras_pts_buff_forest$pct_forest)
 
+## Forest patches in buffer
+forest_patches$patch_areasqkm <- terra::expanse(forest_patches, unit='km')
+cameras_pts_buff_forest_patches <- terra::intersect(cameras_pts_buff, forest_patches)
+cameras_pts_buff_forest_patches_df <- as.data.frame(cameras_pts_buff_forest_patches)
+cameras_pts_buff_forest_patches_summary <- cameras_pts_buff_forest_patches_df[,c('placename','patch_areasqkm')] %>%
+  dplyr::group_by(placename) %>%
+  dplyr::summarize(nForestPatches=n(),
+                   minForestPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianForestPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanForestPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxForestPatchArea=max(patch_areasqkm, na.rm=T)) %>%
+  as.data.frame()
+
+summary(cameras_pts_buff_forest_patches_summary)
+hist(cameras_pts_buff_forest_patches_summary$meanForestPatchArea, main='Mean forest patch area in buffer', xlab='sq km')
+
+# join back empty rows
+cameras_pts_buff_forest_patches_summary <- merge(cameras, cameras_pts_buff_forest_patches_summary, by='placename', all=T)
+cameras_pts_buff_forest_patches_summary <- cameras_pts_buff_forest_patches_summary[,c(1,6:10)]
+
+## Canopy height
 cameras_canopy <- terra::extract(canopy, cameras_pts_buff, na.rm=T, fun='mean')
 names(cameras_canopy) <- c('ID','canopy_height_m')
 
-# Ag
+## Core forest
+#forest_patch_core <- lsm_p_core(forest, directions=8, edge_depth=10)
+forest_core_raster <- terra::rasterize(forest_core, forest, values=1, fun='mean')
+cameras_pts_buff_forest_core <- terra::extract(forest_core_raster, cameras_pts_buff, fun='table', na.rm=T)
+names(cameras_pts_buff_forest_core) <- c('ID','nForestCoreCells')
+
+cameras_pts_buff_forest_core$coreforest_areasqm <- cameras_pts_buff_forest_core$nForestCoreCells*100
+cameras_pts_buff_forest_core$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
+cameras_pts_buff_forest_core$pct_forest_core <- cameras_pts_buff_forest_core$coreforest_areasqm/cameras_pts_buff_forest_core$buffer_areasqm
+cameras_pts_buff_forest_core$pct_forest_core <- ifelse(cameras_pts_buff_forest_core$pct_forest_core > 1, 1, cameras_pts_buff_forest_core$pct_forest_core)
+
+
+## Ag
 cameras_pts_buff_ag <- terra::extract(ag, cameras_pts_buff, fun='table', na.rm=T)
 names(cameras_pts_buff_ag) <- c('ID','nAgCells')
 
@@ -153,12 +211,31 @@ cameras_pts_buff_ag$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
 cameras_pts_buff_ag$pct_ag <- cameras_pts_buff_ag$ag_areasqm/cameras_pts_buff_ag$buffer_areasqm
 cameras_pts_buff_ag$pct_ag <- ifelse(cameras_pts_buff_ag$pct_ag > 1, 1, cameras_pts_buff_ag$pct_ag)
 
+## Ag patches in buffer
+ag_patches$patch_areasqkm <- terra::expanse(ag_patches, unit='km')
+cameras_pts_buff_ag_patches <- terra::intersect(cameras_pts_buff, ag_patches)
+cameras_pts_buff_ag_patches_df <- as.data.frame(cameras_pts_buff_ag_patches)
+cameras_pts_buff_ag_patches_summary <- cameras_pts_buff_ag_patches_df[,c('placename','patch_areasqkm')] %>%
+  dplyr::group_by(placename) %>%
+  dplyr::summarize(nAgPatches=n(),
+                   minAgPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianAgPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanAgPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxAgPatchArea=max(patch_areasqkm, na.rm=T)) %>%
+  as.data.frame()
 
-# Current flow
+summary(cameras_pts_buff_ag_patches_summary)
+hist(cameras_pts_buff_ag_patches_summary$meanAgPatchArea, main='Mean ag patch area in buffer', xlab='sq km')
+
+# join back empty rows
+cameras_pts_buff_ag_patches_summary <- merge(cameras, cameras_pts_buff_ag_patches_summary, by='placename', all=T)
+cameras_pts_buff_ag_patches_summary <- cameras_pts_buff_ag_patches_summary[,c(1,6:10)]
+
+## Current flow
 cameras_pts_buff_current_flow <- terra::extract(current_flow, cameras_pts_buff, fun='mean', na.rm=T)
 names(cameras_pts_buff_current_flow) <- c('ID','mean_current')
 
-# Conductance
+## Conductance
 cameras_pts_buff_conductance <- terra::extract(conductance, cameras_pts_buff, fun='mean', na.rm=T)
 names(cameras_pts_buff_conductance) <- c('ID','mean_conductance')
 
@@ -168,20 +245,27 @@ protected_cameras_df <- as.data.frame(protected_cameras)
 protected_cameras_df$Protected <- 'Yes'
 protected_cameras_df <- protected_cameras_df[,c('placename','Protected')]
 
+
+
 # Assemble dataframe of attributes to join to image data
-cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_pts_buff_ag[,c(2,3,5)],
-                                cameras_pts_buff_forest[,c(2,3,5)], cameras_pts_buff_current_flow, cameras_pts_buff_conductance)
+cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_pts_buff_ag[,c(2,3,5)], cameras_pts_buff_ag_patches_summary[,c(2,5)],
+                            cameras_pts_buff_forest[,c(2,3,5)], cameras_pts_buff_forest_core[,c(2,3,5)],
+                            cameras_pts_buff_forest_patches_summary[,c(2,5)], 
+                            cameras_pts_buff_current_flow, cameras_pts_buff_conductance)
 cameras_merger <- do.call(cbind.data.frame, cameras_merger_list)
 #cameras_merger <- cameras_merger %>% select(-matches('ID'))
 cameras_merger <- merge(cameras_merger, protected_cameras_df, by='placename', all=T)
-cameras_merger <- cameras_merger[,c(1:3,5,7:13,15,17,18)] #get rid of replicated ID columns
+cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,24,26,27)] #get rid of replicated ID columns
 # replace NA in protected with "No" to indicate not protected
 cameras_merger[c("Protected")][is.na(cameras_merger[c("Protected")])] <- 'No'
 table(cameras_merger$Protected)
 
+cameras_merger[is.na(cameras_merger)] <- 0
+
 #write.csv(cameras_merger, file='Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes.csv', row.names=F)
 
-M <- cor(cameras_merger[,c(4:13)], method='spearman', use='pairwise.complete.obs')
+# PICK UP HERE
+M <- cor(cameras_merger[,c(6:11)], method='spearman', use='pairwise.complete.obs')
 
 corrplot(M)
 
@@ -458,6 +542,13 @@ terra::plot(AmistOsa, main='Collared peccary')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 terra::plot(subset(cameras_pts, cameras_pts$placename %in% collared$placename), add=T, col='gold')
+
+jaguar <- subset(happy_data, Panthera.onca==1)
+terra::plot(AmistOsa, main='Jaguar')
+terra::plot(protected_areas_dissolved, add=T, col='gray80')
+terra::plot(cameras_pts, add=T, col='black')
+terra::plot(subset(cameras_pts, cameras_pts$placename %in% collared$placename), add=T, col='gold')
+
 
 ## 9.3: Sampling unit based accumulation curves
 inc_dat <- total_obs %>% 
