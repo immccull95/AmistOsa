@@ -1,6 +1,6 @@
 ################## AmistOsa landscape structure analysis ##########################
 # Date: 9-26-23
-# updated: 12-5-23; redo ag patches excluding protected areas
+# updated: 1-4-24; combine some LULC classes for simpler mapping
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -150,7 +150,78 @@ intermed_mosaic_roads <- terra::mosaic(intermed_mosaicRK, roads_buffered_rastRK,
 plot(intermed_mosaic_roads)
 #writeRaster(intermed_mosaic_roads, filename='Data/spatial/LULC/AmistOsa_LULC_Yana_noUNCL_wRoads.tif', overwrite=T)# export to inspect in QGIS
 
-# Add in rivers: for now, skipping this part (rivers do not impede connectivity)
+## For ease of LULC mapping purposes, combine some classes
+freq(intermed_mosaic_roads)
+mapm <- c(0,0,0, #lump low veg, pineapple and palm plantations as one ag class (but later mask out low veg in PAs to revert to low veg)
+          1,1,12,
+          2,2,0,
+          3,3,0,
+          4,4,5,
+          5,5,5,
+          7,7,7,
+          8,8,8,
+          9,9,12, #lump wetlands and mangroves into one new class
+          99,99,99)
+mapm <- matrix(mapm, ncol=3, byrow=T)
+mapLULC_mosaic <- terra::classify(intermed_mosaic_roads, mapm, right=NA, others=NA)
+plot(mapLULC_mosaic)
+freq(mapLULC_mosaic)
+
+#0=low veg (cropland/pasture)
+#2=palm, 3=pineapple
+#mag <- c(2,3,1)
+mag <- c(0,0,0,
+         2,3,0,
+         1,99,NA)
+rclmat_ag <- matrix(mag, ncol=3, byrow=T)
+AmistOsa_ag <- terra::classify(intermed_mosaic_roads, rclmat_ag, right=NA)
+plot(AmistOsa_ag)
+freq(AmistOsa_ag)
+
+pa_mask <- terra::rasterize(protected_areas, intermed_mosaic_roads)
+plot(pa_mask)
+lowveg_masked <- terra::mask(AmistOsa_ag, pa_mask, inverse=F)
+lowveg_masked <- terra::ifel(lowveg_masked==0, 888, NA) #assign absurdly high value to make it stand out
+plot(lowveg_masked)
+mapLULC_mosaic <- terra::mosaic(mapLULC_mosaic, lowveg_masked, fun='max')
+plot(mapLULC_mosaic)
+freq(mapLULC_mosaic)
+#writeRaster(mapLULC_mosaic, filename='Data/spatial/LULC/mapLULC_mosaic.tif', overwrite=T)
+
+# Basic pie graph of LULC landscape composition
+AmistOsa_LULC_pct_map <- freq(mapLULC_mosaic)
+AmistOsa_LULC_pct_map$areasqkm <- (AmistOsa_LULC_pct_map$count*100)/1000000 
+AmistOsa_LULC_pct_map$prop <- AmistOsa_LULC_pct_map$areasqkm/(sum(AmistOsa_LULC_pct_map$areasqkm))
+AmistOsa_LULC_pct_map$pct <- round((AmistOsa_LULC_pct_map$prop*100),2)
+
+pie_data <- AmistOsa_LULC_pct_map %>%
+  arrange(desc(pct)) %>%
+  mutate(lab.ypos = cumsum(pct) - 0.5*pct)
+pie_data$Type <- c('Forest','Agriculture','Road','Wetland/mangrove','Water','Low vegetation','Developed')
+pie_data$TypeFac <- as.factor(pie_data$Type)
+pie_data$TypeFac <- factor(pie_data$TypeFac, levels=c('Forest','Agriculture','Road','Wetland/mangrove',
+                                                      'Water','Low vegetation','Developed'))
+
+mycols <- c("forestgreen","gold","black","purple4","blue",
+            'rosybrown1','firebrick')
+
+roundedpcts <- round(pie_data$pct, 1)
+mylabs <- paste0(pie_data$Type, ' (', roundedpcts, '%)')
+
+jpeg(filename='Figures/AmistOsa_LULC_pie.jpeg', height=4, width=6, units='in', res=300)
+ggplot(pie_data, aes(x = "", y = pct, fill = TypeFac)) +
+  geom_bar(width = 1, stat = "identity", color = "white") +
+  coord_polar("y", start = 0)+
+  #geom_text(aes(y = lab.ypos, label = pct), color = "black")+
+  scale_fill_manual(values = mycols, labels=mylabs, name='Type') +
+  #ggtitle("AmistOsa land use/land cover") +
+  theme_void()+
+  theme(plot.title = element_text(hjust = 0.8))
+dev.off()
+#write.csv(pie_data, file='Data/spatial/LULC/AmistOsa_LULC.csv', row.names=F)
+
+
+# Add in rivers: for now, skipping this part 
 # try adding in rivers with no buffer or anything else
 # but this results in weird lack of river contiguity (i.e., diagnoal)
 #rivers_rast <- terra::rasterize(rivers, AmistOsa_lulc_Yana_rast, field='CATEGORIA', background=NA)
@@ -206,44 +277,34 @@ AmistOsa_LULC_pct_wRoads$Type <- c('Low vegetation','Mangrove','Palm plantation'
                                    'Developed','Water','Wetland','Roads','Forest')
 AmistOsa_LULC_pct_wRoads[9,2] <- 5
 
-# Basic graph of LULC landscape composition
-pie_data <- AmistOsa_LULC_pct_wRoads %>%
-  arrange(desc(pct)) %>%
-  mutate(lab.ypos = cumsum(pct) - 0.5*pct)
-pie_data
-pie_data$TypeFac <- as.factor(pie_data$Type)
-pie_data$TypeFac <- factor(pie_data$TypeFac, levels=c('Forest','Low vegetation','Roads','Palm plantation',
-                                    'Water','Mangrove','Pineapple','Wetland','Developed'))
-  
-mycols <- c("forestgreen","darkolivegreen1","black","darkgoldenrod1","blue",
-            'purple','gold','dodgerblue','firebrick')
-
-roundedpcts <- round(pie_data$pct, 1)
-mylabs <- paste0(pie_data$Type, ' (', roundedpcts, '%)')
-
-jpeg(filename='Figures/AmistOsa_LULC_pie.jpeg', height=4, width=6, units='in', res=300)
-ggplot(pie_data, aes(x = "", y = pct, fill = TypeFac)) +
-  geom_bar(width = 1, stat = "identity", color = "white") +
-  coord_polar("y", start = 0)+
-  #geom_text(aes(y = lab.ypos, label = pct), color = "black")+
-  scale_fill_manual(values = mycols, labels=mylabs, name='Type') +
-  ggtitle("AmistOsa land use/land cover") +
-  theme_void()+
-  theme(plot.title = element_text(hjust = 0.8))
-dev.off()
-#write.csv(pie_data, file='Data/spatial/LULC/AmistOsa_LULC.csv', row.names=F)
+# # Basic graph of LULC landscape composition
+# pie_data <- AmistOsa_LULC_pct_wRoads %>%
+#   arrange(desc(pct)) %>%
+#   mutate(lab.ypos = cumsum(pct) - 0.5*pct)
+# pie_data
+# pie_data$TypeFac <- as.factor(pie_data$Type)
+# pie_data$TypeFac <- factor(pie_data$TypeFac, levels=c('Forest','Low vegetation','Roads','Palm plantation',
+#                                     'Water','Mangrove','Pineapple','Wetland','Developed'))
+#   
+# mycols <- c("forestgreen","darkolivegreen1","black","darkgoldenrod1","blue",
+#             'purple','gold','dodgerblue','firebrick')
+# 
+# roundedpcts <- round(pie_data$pct, 1)
+# mylabs <- paste0(pie_data$Type, ' (', roundedpcts, '%)')
+# 
+# jpeg(filename='Figures/AmistOsa_LULC_pie.jpeg', height=4, width=6, units='in', res=300)
+# ggplot(pie_data, aes(x = "", y = pct, fill = TypeFac)) +
+#   geom_bar(width = 1, stat = "identity", color = "white") +
+#   coord_polar("y", start = 0)+
+#   #geom_text(aes(y = lab.ypos, label = pct), color = "black")+
+#   scale_fill_manual(values = mycols, labels=mylabs, name='Type') +
+#   ggtitle("AmistOsa land use/land cover") +
+#   theme_void()+
+#   theme(plot.title = element_text(hjust = 0.8))
+# dev.off()
+# #write.csv(pie_data, file='Data/spatial/LULC/AmistOsa_LULC.csv', row.names=F)
 
 ## Update: get ag patches
-#0=low veg (cropland/pasture)
-#2=palm, 3=pineapple
-#mag <- c(2,3,1)
-mag <- c(0,0,1,
-         2,3,1,
-         4,99,NA)
-rclmat_ag <- matrix(mag, ncol=3, byrow=T)
-AmistOsa_ag <- terra::classify(intermed_mosaic_roads, rclmat_ag, right=NA)
-plot(AmistOsa_ag)
-freq(AmistOsa_ag)
 
 # mask out areas in protected areas; unlikely actually to be ag
 pa_mask <- terra::rasterize(protected_areas, intermed_mosaic_roads)

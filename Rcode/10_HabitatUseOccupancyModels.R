@@ -64,7 +64,8 @@ effect_plot(lm_cat,                  # The model object
             pred = Protected,     # The variable you want to predict
             interval = TRUE,         # Whether you want confidence intervals (default = 0.95)
             partial.residuals = T,   # Show the residual variation -after accounting for fixed effects  
-            y.label = "Habitat use") # Change the y axis label
+            y.label = "Habitat use", # Change the y axis label
+            main='Tapir') 
 
 #### Analyze influence of continuous predictor ####
 plot(mod_dat$Tapirus.bairdii~mod_dat$z.pct_forest,
@@ -82,7 +83,8 @@ effect_plot(lm_con,                  # The model object
             pred = z.pct_forest,  # The variable you want to predict
             interval = TRUE,         # Whether you want confidence intervals (default = 0.95)
             partial.residuals = T,   # Show the residual variation -after accounting for fixed effects  
-            y.label = "Habitat use") # Change the y axis label
+            y.label = "Habitat use", # Change the y axis label
+            main='Tapir')
 
 #### Model comparisons ####
 # Create a "null model" something without any predictors in at all, to compare these models to:
@@ -179,6 +181,7 @@ new_dat <- predict(m1, type="state", newdata = new_dat, appendData=TRUE)
 p1 <- ggplot(new_dat, aes(x = z.pct_forest, y = Predicted)) + # mean line
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
   geom_path(size = 1) +
+  ggtitle(focal_sp)+
   labs(x = "Percent forest", y = "Occupancy probability") + # axis labels
   theme_classic() +
   coord_cartesian(ylim = c(0,1))
