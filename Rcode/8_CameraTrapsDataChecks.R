@@ -1,6 +1,6 @@
 ##################### AmistOsa camera traps: data checks ##########################
 # Date: 12-12-23
-# updated: 1-2-24: add new OSAGRID data
+# updated: 1-9-24: add new road survey data
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -47,6 +47,10 @@ dep2 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/OSAGRID/dep.csv")
 img2 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/OSAGRID/img.csv")
 sp_list2 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/OSAGRID/sp_list.csv")
 
+# Road survey dataset
+dep_rs <- read.csv("Data/spatial/CameraTraps/road_survey/station_info.csv")
+img_rs <- read.csv("Data/spatial/CameraTraps/road_survey/database_main.csv")
+
 # DEM
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
 
@@ -76,6 +80,9 @@ duplicated(deployments$deployment_id)
 dep2 <- dep2[!grepl("(remove)", dep2$deployment_id),] 
 duplicated(dep2$deployment_id)
 
+img_rs <- subset(img_rs, DeleteFlag==FALSE)# get rid of images already slated for removal
+img_rs <- img_rs[!(is.na(img_rs$Species) | img_rs$Species==""), ] #get rid of blank images
+
 #deployments$roww <- seq(1,nrow(deployments), 1)
 # found OCCT06_M103_9112022 as duplicated
 # only keep distinct rows based on deployment_id
@@ -83,6 +90,8 @@ deployments <- deployments %>%
   dplyr::distinct(deployment_id, .keep_all = TRUE)
 dep2 <- dep2 %>%
   dplyr::distinct(deployment_id, .keep_all = TRUE)
+# dep_rs <- dep_rs %>%
+#   dplyr::distinct(deployment_id, .keep_all = TRUE) #has no deployment_id column
 
 # but even this still yields 14 placenames not in both deployment and image datasets
 deployments_placenames <- deployments[,c('deployment_id','placename')]
@@ -97,6 +106,11 @@ dep2$placename <- str_split_i(dep2$deployment_id, pattern='_', i=1)
 dep2_placenames <- dep2[,c('deployment_id','placename')]
 img2 <- left_join(img2, dep2_placenames, by='deployment_id', relationship='many-to-many')
 sum(is.na(img2$placename))
+
+dep_rs$placename <- dep_rs$station
+dep_rs_placenames <- dep_rs[,c('station','placename')]
+img_rs <- left_join(img_rs, dep_rs_placenames, by=c('StationCode'='station'), relationship='many-to-many')
+sum(is.na(img_rs$placename))
 
 
 #missing <- subset(images, is.na(images$placename==T)) #all rows slated for removal
@@ -136,6 +150,10 @@ img2$timestamp <- ymd_hms(img2$timestamp)
 range(img2$timestamp) #check range of timestamps (can't have data from 2024 or 27 yet...these fixed, but data from 2015-2019 may also be errors)
 table(is.na(img2$timestamp)) #NA check
 
+img_rs$timestamp <- ymd_hms(img_rs$DateTime)
+range(img_rs$timestamp) #check range of timestamps (can't have data from 2024 or 27 yet...these fixed, but data from 2015-2019 may also be errors)
+table(is.na(img_rs$timestamp)) #NA check
+
 ## analyze records with suspicious timestamps (2015-2019)
 images$year <- year(images$timestamp)
 hist(images$year)
@@ -170,10 +188,36 @@ dep2 <- dep2[!is.na(dep2$days),]
 dep2 <- dep2[!is.na(dep2$latitude),]
 dep2 <- dep2[!is.na(dep2$longitude),]
 
+# Clean road survey data
+img_rs$year <- year(img_rs$timestamp)
+img_rs <- subset(img_rs, year >= 2021) #throw out timestamps from 2016 (all cameras were deployed in 2021, so 2016 must be wrong)
+# get rid of non-mammals, domestic animals, people, stuff not identified to species level
+img_rs <- subset(img_rs, !(Species %in% c('setup','bird','nothing','pigeon','tinamou',
+                                        'rodent','uid','tinamou_little','pig',
+                                        'motmot','dog','lizard_uid','squirrel_uid',
+                                        'rail','people','hawk','cow',
+                                        'cat','iguana_green','guan_crested','not_usable',
+                                        'opossum_uid','mouse','bat')))
+img_rs$Date <- as.Date(img_rs$timestamp)
+img_rs <- img_rs %>%  # stamps each image with end date for associated camera
+  group_by(placename) %>% 
+  mutate(end = if_else(Date == max(Date), as.Date(Date), as.Date(max(Date))))
+img_rs$is_blank <- ifelse(is.na(img_rs$Species)==F, 0, 1)#column in WI format
+ 
+# get those camera end dates into the deployment table
+rs_enddates <- img_rs[,c('placename','end')]
+rs_enddates <- dplyr::distinct(rs_enddates)
+dep_rs <- left_join(dep_rs, rs_enddates, by='placename')
+dep_rs$start <- ymd(mdy(dep_rs$start)) #wonky, I know
+#dep_rs$end <- ymd(mdy(dep_rs$end))
+dep_rs$days <- interval(dep_rs$start, dep_rs$end)/ddays(1)
+hist(dep_rs$days)
+
 # Basic camera trap summaries#
 # Count the number of camera locations
 paste(length(unique(deployments$placename)), "locations"); paste(length(unique(deployments$deployment_id)), "deployments");paste(nrow(images), "image labels"); paste(nrow(images[images$is_blank == TRUE,]), "blanks")
 paste(length(unique(dep2$placename)), "locations"); paste(length(unique(dep2$deployment_id)), "deployments");paste(nrow(img2), "image labels"); paste(nrow(img2[img2$is_blank == TRUE,]), "blanks")
+paste(length(unique(dep_rs$placename)), "locations"); paste(length(unique(dep_rs$placename)), "deployments");paste(nrow(img_rs), "image labels"); paste(nrow(img_rs[img_rs$is_blank == TRUE,]), "blanks")
 
 
 ## 5.4 error checks
@@ -204,6 +248,13 @@ m2 <- leaflet() %>%
     lng=dep2$longitude, lat=dep2$latitude,
     popup=paste(dep2$placename)) # include a popup with the placename!
 m2  
+
+m3 <- leaflet() %>%             
+  addTiles() %>%         
+  addCircleMarkers(      
+    lng=dep_rs$longitud, lat=dep_rs$latitud,
+    popup=paste(dep_rs$placename)) # include a popup with the placename!
+m3 #looks OK!
 
 # if had typo in a coordinate, could use this (example)
 #dep$longitude[dep$placename=="ALG069"] <- -112.5075
@@ -240,6 +291,81 @@ dep_combined <- dep_combined %>%
   group_by(placename) %>% 
   slice_head(n=1) %>%
   as.data.frame()
+
+# Before combining road dataset to others, need to standardize columns
+base::intersect(names(img_combined), names(img_rs))
+names(img_combined)
+#test <- img_rs
+img_rs$project_id <- 'roadsurvey'
+img_rs$deployment_id <- img_rs$placename #don't have anything more specific
+img_rs$image_id <- NA #if column needs to be created, create an empty one
+names(img_rs)[names(img_rs) == 'File'] <- 'filename' #replace a column name
+img_rs$location <- NA
+img_rs$identified_by <- NA
+img_rs$wi_taxon_id <- NA
+img_rs$class <- NA
+img_rs$order <- NA
+img_rs$family <- NA
+img_rs$genus <- NA
+names(img_rs)[names(img_rs) == 'Species'] <- 'species'
+img_rs$common_name <- img_rs$species
+names(img_rs)[names(img_rs) == 'Number'] <- 'number_of_objects'
+img_rs$number_of_objects <- ifelse(img_rs$number_of_objects==0, 1, img_rs$number_of_objects) #the 0s are likely 1s that were not filled in
+img_rs$age <- NA
+img_rs$sex <- NA
+img_rs$animal_recognizable <- NA
+img_rs$individual_id <- NA
+img_rs$individual_animal_notes <- NA
+img_rs$behavior <- NA
+img_rs$highlighted <- NA
+img_rs$markings <- NA
+img_rs$cv_confidence <- NA
+img_rs$license <- NA
+
+img_rs <- img_rs[colnames(img_rs) %in% colnames(img_combined)]
+img_rs <- img_rs[names(img_combined)]
+setdiff(names(img_rs), names(img_combined)) #check
+
+img_combined <- rbind.data.frame(img_combined, img_rs)
+
+# Also need to standardize deployments
+names(dep_combined)
+names(dep_rs)
+#test <- dep_rs
+dep_rs$project_id <- 'roadsurvey'
+dep_rs$deployment_id <- dep_rs$placename
+names(dep_rs)[names(dep_rs) == 'longitud'] <- 'longitude'
+names(dep_rs)[names(dep_rs) == 'latitud'] <- 'latitude'
+names(dep_rs)[names(dep_rs) == 'start'] <- 'start_date'
+names(dep_rs)[names(dep_rs) == 'end'] <- 'end_date'
+dep_rs$bait_type <- NA
+dep_rs$bait_description <- NA
+dep_rs$feature_type <- NA
+dep_rs$feature_type_methodology <- NA
+dep_rs$camera_id <- NA
+dep_rs$camera_name <- NA
+dep_rs$quiet_period <- NA
+dep_rs$camera_functioning <- NA
+names(dep_rs)[names(dep_rs) == 'cam_hgt_cm'] <- 'sensor_height'
+dep_rs$height_other <- NA
+names(dep_rs)[names(dep_rs) == 'cam_direction'] <- 'sensor_orientation'
+dep_rs$orientation_other <- NA
+dep_rs$plot_treatment <- NA
+dep_rs$plot_treatment_description <- NA
+dep_rs$detection_distance <- NA
+dep_rs$subproject_name <- NA
+dep_rs$subproject_design <- NA
+dep_rs$event_name <- NA
+dep_rs$event_description <- NA
+dep_rs$event_type <- NA
+dep_rs$recorded_by <- NA
+dep_rs$colours <- NA
+
+dep_rs <- dep_rs[colnames(dep_rs) %in% colnames(dep_combined)]
+dep_rs <- dep_rs[names(dep_combined)]
+setdiff(names(dep_rs), names(dep_combined)) #check
+
+dep_combined <- rbind.data.frame(dep_combined, dep_rs)
 
 # Chris 'ultimate' leaflet map:
 # First, set a single categorical variable of interest from station covariates for summary graphs. If you do not have an appropriate category use "project_id".
@@ -413,7 +539,7 @@ for(i in 1:max(dep_tmp$plot_group))
   for(j in 1:nrow(tmp))
   {
     #Subset the image data
-    tmp_img <- images[img_combined$deployment_id==tmp$deployment_id[j],]
+    tmp_img <- img_combined[img_combined$deployment_id==tmp$deployment_id[j],]
     
     if(nrow(tmp_img)>0)
     {
