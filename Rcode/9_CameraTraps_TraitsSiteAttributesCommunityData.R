@@ -1,10 +1,10 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 1-3-24
+# updated: 1-11-24: compare 100m and 500m buffers
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
-#### R libraies ####
+#### R libraries ####
 library(terra)
 library(dplyr)
 library(kableExtra)
@@ -31,17 +31,15 @@ setwd("C:/Users/immccull/Documents/AmistOsa")
 AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa_31971.shp")
 
 # Preliminary camera trap datasets (processed in 8_CameraTrapsDataChecks.R)
-# have prefix OSAGRID but actually combined OSAGRID and 2003884 projects
-#species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_species_list.csv")
+# have prefix OSAGRID but actually combined OSAGRID, 2003884 and road survey projects
+species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_species_list.csv")
 projects <- read.csv("Data/spatial/CameraTraps/wildlife-insights/projects.csv")
 total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_total_observations.csv", header=T)
 mon_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_monthly_observations.csv", header=T)
 week_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_weekly_observations.csv")
 
-# camera locations:
-cameras_osagrid <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_camera_locations.csv")
-cameras_2003884 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/2003884_camera_locations.csv")
-cameras <- rbind.data.frame(cameras_osagrid, cameras_2003884)
+# camera locations: (combined OSAGRID, WI and road survey)
+cameras <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_camera_locations.csv")
 
 # DEM
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
@@ -77,7 +75,9 @@ roads <- terra::vect("Data/spatial/Redcamino2014crtm05/AmistOsa_roads_31971.shp"
 conductance <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_canopyheightmod.tif")
 
 # Combined camera trap site attribute data (if already run)
-cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes.csv")
+# use either 100 m or 500 m buffer datasets
+cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_100mbuff.csv")
+#cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv")
 
 #### Main program ####
 ## Trait data
@@ -122,12 +122,12 @@ cebus <- subset(elton_mammals, Genus=='Cebus')
 cebus <- cebus[,c("BodyMass.Value", "Activity.Nocturnal", "Activity.Crepuscular", "Activity.Diurnal")]
 cebus_mean <- colMeans(cebus) #all same for everything but body mass, so averaging has no effect for those
 
-sp_summary[sp_summary$sp=="Cebus.imitator", c("mass_g", "act_noct","act_crep","act_diur")] <- 
+sp_summary[sp_summary$sp=="Cebus.imitator", c("mass_g", "act_noct","act_crep","act_diur")] <-
   cebus_mean[1:4]
 
 # great curassow is not a mammal, so fill in its body mass
 # https://eol.org/pages/45508958/articles 
-sp_summary[1,8] <- 8.7
+sp_summary[1,8] <- 3950 #grams
 
 ## Camera trap location map
 crdref <- "EPSG:4326" #I think this is the right one
@@ -176,12 +176,13 @@ sp_summary <- left_join(sp_summary, tmp)
 sp_summary <- sp_summary[!duplicated(sp_summary$sp),]
 
 # deal with taxonomic revision for jaguarundi (now in its own genus)
-jaguarundi_tax <- subset(sp_summary, sp %in% c('Herpailurus.yagouaroundi','Puma.yagouaroundi'))
-jaguarundi_tax_fixed <- jaguarundi_tax[1,] #H genus is current one, so keep first row
-jaguarundi_tax_fixed$count <- sum(jaguarundi_tax$count) #then get total counts for both species designations (actually one species)
-
-sp_summary <- subset(sp_summary, !(sp %in% c('Herpailurus.yagouaroundi','Puma.yagouaroundi')))
-sp_summary <- rbind.data.frame(sp_summary, jaguarundi_tax_fixed)
+# fixed in previous script, so not necessary here
+# jaguarundi_tax <- subset(sp_summary, sp %in% c('Herpailurus.yagouaroundi','Puma.yagouaroundi'))
+# jaguarundi_tax_fixed <- jaguarundi_tax[1,] #H genus is current one, so keep first row
+# jaguarundi_tax_fixed$count <- sum(jaguarundi_tax$count) #then get total counts for both species designations (actually one species)
+# 
+# sp_summary <- subset(sp_summary, !(sp %in% c('Herpailurus.yagouaroundi','Puma.yagouaroundi')))
+# sp_summary <- rbind.data.frame(sp_summary, jaguarundi_tax_fixed)
 #write.csv(sp_summary, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/", "species_list_traits.csv"), row.names = F)
 
 ## 8.2.2: Raw occupancy (whether something was detected or not)
@@ -291,7 +292,7 @@ m <- leaflet() %>%
                    fillOpacity=0.6) 
 m
 
-## 8.6: Species co-occurences
+## 8.6: Species co-occurrences
 # Reset the plot parameters
 par(mfrow=c(1,1))
 
@@ -822,7 +823,7 @@ names(cameras_elevation) <- c('ID','elevation_m')
 # names(cameras_canopy) <- c('ID','canopy_height_m')
 
 ## create buffer for % forest (or other stuff)
-buff_dist <- 100 #meters
+buff_dist <- 500 #meters
 
 cameras_pts_buff <- terra::buffer(cameras_pts, buff_dist)
 
@@ -870,7 +871,6 @@ cameras_pts_buff_forest_core$buffer_areasqm <- terra::expanse(cameras_pts_buff, 
 cameras_pts_buff_forest_core$pct_forest_core <- cameras_pts_buff_forest_core$coreforest_areasqm/cameras_pts_buff_forest_core$buffer_areasqm
 cameras_pts_buff_forest_core$pct_forest_core <- ifelse(cameras_pts_buff_forest_core$pct_forest_core > 1, 1, cameras_pts_buff_forest_core$pct_forest_core)
 
-
 ## Ag
 cameras_pts_buff_ag <- terra::extract(ag, cameras_pts_buff, fun='table', na.rm=T)
 names(cameras_pts_buff_ag) <- c('ID','nAgCells')
@@ -914,6 +914,23 @@ protected_cameras_df <- as.data.frame(protected_cameras)
 protected_cameras_df$Protected <- 'Yes'
 protected_cameras_df <- protected_cameras_df[,c('placename','Protected')]
 
+# Protected area distance
+pa_camera_distance <- terra::distance(cameras_pts, protected_areas, unit='m')
+pa_camera_distance_df <- as.data.frame(pa_camera_distance)
+pa_camera_distance_df$min <- apply(pa_camera_distance_df, 1, FUN = min)
+
+## percent protected
+cameras_pts_buff_pct_protected <- terra::intersect(cameras_pts_buff, protected_areas_dissolved)
+cameras_pts_buff_pct_protected_df <- as.data.frame(cameras_pts_buff_pct_protected)
+cameras_pts_buff_pct_protected_df$pa_areasqm <- terra::expanse(cameras_pts_buff_pct_protected, unit='m')
+
+cameras_pts_buff_pct_protected_df <- merge(cameras_pts_buff_pct_protected_df, cameras[,c(1:2)], by='placename', all=T)
+
+cameras_pts_buff_pct_protected_df$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
+cameras_pts_buff_pct_protected_df$pct_protected <- cameras_pts_buff_pct_protected_df$pa_areasqm/cameras_pts_buff_pct_protected_df$buffer_areasqm
+cameras_pts_buff_pct_protected_df$pct_protected <- ifelse(cameras_pts_buff_pct_protected_df$pct_protected > 1, 1, cameras_pts_buff_pct_protected_df$pct_protected)
+summary(cameras_pts_buff_pct_protected_df$pct_protected)
+
 ## Roads
 # Note: since buffers are small, currently most have 0 roads and some 1, 
 # which makes a road density calculation wonky. Could increase buffer size.
@@ -934,11 +951,15 @@ cameras_pts_buff_roads_summary$nRoads_persqkm <- cameras_pts_buff_roads_summary$
 cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_pts_buff_ag[,c(2,3,5)], cameras_pts_buff_ag_patches_summary[,c(2,5)],
                             cameras_pts_buff_forest[,c(2,3,5)], cameras_pts_buff_forest_core[,c(2,3,5)],
                             cameras_pts_buff_forest_patches_summary[,c(2,5)], 
-                            cameras_pts_buff_current_flow, cameras_pts_buff_conductance, cameras_pts_buff_roads_summary[,c(2,4)])
+                            cameras_pts_buff_current_flow, cameras_pts_buff_conductance, cameras_pts_buff_roads_summary[,c(2,4)],
+                            pa_camera_distance_df[,c(22)],
+                            cameras_pts_buff_pct_protected_df[,c(9)])
 cameras_merger <- do.call(cbind.data.frame, cameras_merger_list)
 #cameras_merger <- cameras_merger %>% select(-matches('ID'))
 cameras_merger <- merge(cameras_merger, protected_cameras_df, by='placename', all=T)
-cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,24,26:29)] #get rid of replicated ID columns
+cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,24,26:31)] #get rid of replicated ID columns
+colnames(cameras_merger)[19] <- "protected_area_dist_m"
+colnames(cameras_merger)[20] <- "pct_protected"
 # replace NA in protected with "No" to indicate not protected
 cameras_merger[c("Protected")][is.na(cameras_merger[c("Protected")])] <- 'No'
 table(cameras_merger$Protected)
@@ -946,10 +967,18 @@ table(cameras_merger$Protected)
 # in case any NAs still need to be converted to true 0s
 cameras_merger[is.na(cameras_merger)] <- 0
 
-#write.csv(cameras_merger, file='Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes.csv', row.names=F)
+# create forest edge variable
+cameras_merger$pct_forest_edge <- cameras_merger$pct_forest - cameras_merger$pct_forest_core
+
+#write.csv(cameras_merger, file='Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_100mbuff.csv', row.names=F)
+#write.csv(cameras_merger, file='Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv', row.names=F)
+
 
 ## Correlations among potential predictors
-M <- cor(cameras_merger[,c(6:14, 17:18)], method='spearman', use='pairwise.complete.obs')
+candidate_predictors <- cameras_merger[,c('elevation_m','pct_ag','pct_forest_core','pct_forest_edge',
+                          'pct_protected','protected_area_dist_m','canopy_height_m',
+                          'meanForestPatchArea','nForestPatches')]
+M <- cor(candidate_predictors, method='spearman', use='pairwise.complete.obs')
 
 par(mfrow=c(1,1))
 corrplot(M)
@@ -977,6 +1006,9 @@ hist(cameras_merger$pct_forest, main='Forest cover', xlab='Forest cover (prop)')
 hist(cameras_merger$pct_forest_core, main='Core forest cover', xlab='Core forest cover (prop)')
 #mtext(side=3, '100 m buffers around camera locations')
 
+hist(cameras_merger$pct_forest_edge, main='Edge forest cover', xlab='Edge forest cover (prop)')
+#mtext(side=3, '100 m buffers around camera locations')
+
 hist(cameras_merger$nForestPatches, main='Forest patches', xlab='Forest patches')
 #mtext(side=3, '100 m buffers around camera locations')
 
@@ -992,6 +1024,14 @@ hist(cameras_merger$nAgPatches, main='Agriculture patches', xlab='Ag patches')
 hist(cameras_merger$meanAgPatchArea, main='Ag patch area', xlab='sq km')
 #mtext(side=3, '100 m buffers around camera locations')
 
+hist(cameras_merger$pct_protected, main='Protection %', xlab='prop')
+#mtext(side=3, '100 m buffers around camera locations')
+
+hist(cameras_merger$protected_area_dist_m, main='PA distance', xlab='m')
+
+
+
+
 hist(cameras_merger$nTotalRoads, main='Total roads', xlab='Roads')
 #mtext(side=3, '100 m buffers around camera locations')
 
@@ -1005,3 +1045,58 @@ hist(cameras_merger$mean_current, main='Mean current',
 hist(cameras_merger$mean_conductance, main='Mean conductance',
      xlab='Mean conductance')#, xlim=c(0,2), breaks=seq(0,2,0.1))
 #mtext(side=3, '100 m buffers around camera locations')
+
+#### Compare camera attribute data calculated at 100m and 500m buffers ####
+cameras_500m <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv")
+cameras_100m <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_100mbuff.csv")
+
+cameras_500m_cp <- cameras_500m[,c(6:20,22)]
+colnames(cameras_500m_cp) <- paste0(colnames(cameras_500m_cp), '_500m')
+
+cameras_100m_cp <- cameras_100m[,c(6:20,22)]
+colnames(cameras_100m_cp) <- paste0(colnames(cameras_100m_cp), '_100m')
+
+cameras_cp <- cbind.data.frame(cameras_500m_cp, cameras_100m_cp)
+cor(cameras_cp, use='pairwise.complete.obs', method='spearman')
+
+cor(cameras_cp$canopy_height_m_500m, cameras_cp$canopy_height_m_100m, method='spearman')
+cor(cameras_cp$pct_ag_500m, cameras_cp$pct_ag_100m, method='spearman')
+cor(cameras_cp$pct_forest_500m, cameras_cp$pct_forest_100m, method='spearman')
+cor(cameras_cp$pct_forest_core_500m, cameras_cp$pct_forest_core_100m, method='spearman')
+cor(cameras_cp$protected_area_dist_m_100m, cameras_cp$protected_area_dist_m_500m, method='spearman')
+cor(cameras_cp$meanForestPatchArea_500m, cameras_cp$meanForestPatchArea_100m, method='spearman')
+cor(cameras_cp$meanAgPatchArea_500m, cameras_cp$meanAgPatchArea_100m, method='spearman')
+cor(cameras_cp$pct_protected_500m, cameras_cp$pct_protected_100m, method='spearman')
+cor(cameras_cp$pct_forest_edge_500m, cameras_cp$pct_forest_edge_100m, method='spearman')
+cor(cameras_cp$nForestPatches_500m, cameras_cp$nForestPatches_100m, method='spearman')
+cor(cameras_cp$nAgPatches_500m, cameras_cp$nAgPatches_100m, method='spearman')
+
+
+M <- cor(cameras_100m[,colnames(candidate_predictors)], method='spearman', use='pairwise.complete.obs')
+
+par(mfrow=c(1,1))
+corrplot(M)
+
+corrplot(M,                              #The correlation matrix we made
+         method="color",                 # How we want the cells 
+         type="upper",                   # Just show the upper part (it is usually mirrored)
+         #order="hclust",                 # Order the variables using the hclust method
+         addCoef.col = "black",          # Add coefficient of correlation  
+         tl.col="black", tl.srt=45,      # Control the text label color and rotation
+         diag=F                          # Suppress the diagonal correlations (which are 1 anyway)
+)
+
+N <- cor(cameras_500m[,colnames(candidate_predictors)], method='spearman', use='pairwise.complete.obs')
+
+par(mfrow=c(1,1))
+corrplot(N)
+
+corrplot(N,                              #The correlation matrix we made
+         method="color",                 # How we want the cells 
+         type="upper",                   # Just show the upper part (it is usually mirrored)
+         #order="hclust",                 # Order the variables using the hclust method
+         addCoef.col = "black",          # Add coefficient of correlation  
+         tl.col="black", tl.srt=45,      # Control the text label color and rotation
+         diag=F                          # Suppress the diagonal correlations (which are 1 anyway)
+)
+

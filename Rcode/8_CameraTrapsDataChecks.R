@@ -1,6 +1,6 @@
 ##################### AmistOsa camera traps: data checks ##########################
 # Date: 12-12-23
-# updated: 1-9-24: add new road survey data
+# updated: 1-10-24: integrate new road survey data
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -112,7 +112,6 @@ dep_rs_placenames <- dep_rs[,c('station','placename')]
 img_rs <- left_join(img_rs, dep_rs_placenames, by=c('StationCode'='station'), relationship='many-to-many')
 sum(is.na(img_rs$placename))
 
-
 #missing <- subset(images, is.na(images$placename==T)) #all rows slated for removal
 
 # Starting with Ch 5 of Chris' tutorial: https://wildcolab.github.io/Introduction-to-Camera-Trap-Data-Management-and-Analysis-in-R/error-checking.html
@@ -147,11 +146,11 @@ range(images$timestamp) #check range of timestamps (can't have data from 2024 or
 table(is.na(images$timestamp)) #NA check
 
 img2$timestamp <- ymd_hms(img2$timestamp)
-range(img2$timestamp) #check range of timestamps (can't have data from 2024 or 27 yet...these fixed, but data from 2015-2019 may also be errors)
+range(img2$timestamp) #check range of timestamps
 table(is.na(img2$timestamp)) #NA check
 
 img_rs$timestamp <- ymd_hms(img_rs$DateTime)
-range(img_rs$timestamp) #check range of timestamps (can't have data from 2024 or 27 yet...these fixed, but data from 2015-2019 may also be errors)
+range(img_rs$timestamp) #check range of timestamps 
 table(is.na(img_rs$timestamp)) #NA check
 
 ## analyze records with suspicious timestamps (2015-2019)
@@ -191,6 +190,12 @@ dep2 <- dep2[!is.na(dep2$longitude),]
 # Clean road survey data
 img_rs$year <- year(img_rs$timestamp)
 img_rs <- subset(img_rs, year >= 2021) #throw out timestamps from 2016 (all cameras were deployed in 2021, so 2016 must be wrong)
+img_rs$Date <- as.Date(img_rs$timestamp)
+img_rs <- img_rs %>%  # stamps each image with end date for associated camera
+  group_by(placename) %>% 
+  mutate(end = if_else(Date == max(Date), as.Date(Date), as.Date(max(Date))))
+img_rs$is_blank <- ifelse(is.na(img_rs$Species)==F, 0, 1)#column in WI format
+
 # get rid of non-mammals, domestic animals, people, stuff not identified to species level
 img_rs <- subset(img_rs, !(Species %in% c('setup','bird','nothing','pigeon','tinamou',
                                         'rodent','uid','tinamou_little','pig',
@@ -198,12 +203,7 @@ img_rs <- subset(img_rs, !(Species %in% c('setup','bird','nothing','pigeon','tin
                                         'rail','people','hawk','cow',
                                         'cat','iguana_green','guan_crested','not_usable',
                                         'opossum_uid','mouse','bat')))
-img_rs$Date <- as.Date(img_rs$timestamp)
-img_rs <- img_rs %>%  # stamps each image with end date for associated camera
-  group_by(placename) %>% 
-  mutate(end = if_else(Date == max(Date), as.Date(Date), as.Date(max(Date))))
-img_rs$is_blank <- ifelse(is.na(img_rs$Species)==F, 0, 1)#column in WI format
- 
+
 # get those camera end dates into the deployment table
 rs_enddates <- img_rs[,c('placename','end')]
 rs_enddates <- dplyr::distinct(rs_enddates)
@@ -307,8 +307,8 @@ img_rs$class <- NA
 img_rs$order <- NA
 img_rs$family <- NA
 img_rs$genus <- NA
-names(img_rs)[names(img_rs) == 'Species'] <- 'species'
-img_rs$common_name <- img_rs$species
+img_rs$species <- NA
+names(img_rs)[names(img_rs) == 'Species'] <- 'common_name'
 names(img_rs)[names(img_rs) == 'Number'] <- 'number_of_objects'
 img_rs$number_of_objects <- ifelse(img_rs$number_of_objects==0, 1, img_rs$number_of_objects) #the 0s are likely 1s that were not filled in
 img_rs$age <- NA
@@ -366,6 +366,13 @@ dep_rs <- dep_rs[names(dep_combined)]
 setdiff(names(dep_rs), names(dep_combined)) #check
 
 dep_combined <- rbind.data.frame(dep_combined, dep_rs)
+dep_combined <- dep_combined[!is.na(dep_combined$latitude),] #just in case any more cameras with missing coordinates
+dep_combined <- dep_combined[!is.na(dep_combined$longitude),] #just in case any more cameras with missing coordinates
+
+# because we used date of last image for road survey camera end date
+# cameras with no images do not have end dates; these should be removed
+sum(is.na(dep_combined$end_date))
+dep_combined <- dep_combined[!is.na(dep_combined$end_date),]
 
 # Chris 'ultimate' leaflet map:
 # First, set a single categorical variable of interest from station covariates for summary graphs. If you do not have an appropriate category use "project_id".
@@ -590,11 +597,22 @@ for(i in 1:max(dep_tmp$plot_group))
   print(p)
 } 
 
+## Remove images captured outside deployment window (likely a malfunction or error)
+#visually identified using plot_ly output above
+quarantine <- subset(img_combined, deployment_id %in% c('G69_b','G119_a','G19_a','G50_a','G48_a','Rf8_M130_4122022','Rf7_M064_4122022','Rf4_M055_2122022'))
+quarantine <- left_join(quarantine[,c('deployment_id','timestamp','image_id')], dep_combined[,c('deployment_id','start_date','end_date')], by='deployment_id')
+quarantine$capture_date <- as.Date(quarantine$timestamp)
+quarantine$keep <- ifelse(quarantine$capture_date <= quarantine$end_date & quarantine$capture_date >= quarantine$start_date, 'Yes','No')
+table(quarantine$keep)
+quarantine_remove <- subset(quarantine, keep=='No')
+img_combined <- subset(img_combined, !(image_id %in% quarantine_remove$image_id))
+
 ## 5.4.4 Taxonomy check
 # First define vector of the headings you want to see (we will use this trick a lot later on)
 taxonomy_headings <- c("class", "order", "family", "genus", "species", "common_name")
 
 # Subset the image data to just those columns
+# But messed up because road survey data had nothing besides common name
 tmp<- img_combined[,colnames(img_combined)%in% taxonomy_headings]
 # Remove duplicates
 tmp <- tmp[duplicated(tmp)==F,]
@@ -614,9 +632,9 @@ sp_list %>%
   kable_styling(full_width = T) %>% 
   kableExtra::scroll_box(width = "100%", height = "250px")
 
-library(taxize)
-gnr_resolve("Amazilia tzacatl")
-sci2comm("Long-billed Hermit")
+# library(taxize)
+# gnr_resolve("Amazilia tzacatl")
+# sci2comm("Long-billed Hermit")
 # Note we use the project_id from from project data frame to name the file - that was we wont overwrite it if we run things with a different project. 
 #write.csv(sp_list, paste0("Data/spatial/CameraTraps/wildlife-insights/",projects$project_id[1],"_raw_species_list.csv"))
 
@@ -655,25 +673,124 @@ fig
 ## Ch 6: Analysis data creation
 #dir.create("Data/spatial/CameraTraps/wildlife-insights/processed_data")
 
+## fill in missing taxonomic information (road survey cameras)
+img_combined <- subset(img_combined, class %in% c('Mammalia',NA) | common_name %in% c('curassow_great','Great Curassow') | project_id=='roadsurvey')
+img_combined <- subset(img_combined, !(common_name %in% c('Rodent','Pecari Species','Peccary Family','Peromyscus Species',
+                                                          'Mammal','Cat Family','Procyon Species','Didelphimorphia Order','Bat',
+                                                          'Dasypus Species','Small Mammal','Leopardus Species','Possum Family','Coati Family',
+                                                          'Sciuridae Family','Armadillo Family','Cervidae Family','Domestic Dog','Cricetidae Family',
+                                                          'Spiny Rat Family','Phyllostomidae Family','Proechimys Species','Carnivorous Mammal','raccoon',
+                                                          'bat','bird','opossum_uid','rodent','squirrel_uid','lizard_uid','toad','snake','tinamou')))
+# Need to consolidate/standardize common names (e.g., make "peccary_collared" same as Collared Peccary)
+img_combined$common_name <- ifelse(img_combined$common_name=='peccary_collared','Collared Peccary', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='ocelot','Ocelot', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='puma','Puma', img_combined$common_name)
+
+img_combined$common_name <- ifelse(img_combined$common_name=='paca','Spotted Paca', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='tayra','Tayra', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='jaguarundi','Jaguarundi', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='coyote','Coyote', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='tamandua','Northern Tamandua', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='agouti','Central American Agouti', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='curassow_great','Great Curassow', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='coati','White-nosed Coati', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='opossum_common','Common Opossum', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='grison','Greater Grison', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='margay','Margay', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='armadillo_ninebanded','Nine-banded Armadillo', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='peccary_whitelipped','White-lipped Peccary', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='otter','Neotropical Otter', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name %in%c('squirrel_monkey','monkey_squirrel'),'Black-crowned Central American Squirrel Monkey', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='skunk_striped','Striped Hog-nosed Skunk', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='deer_red_brocket','Central American Red Brocket', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name %in% c('Colombian White-throated Capuchin\n','White-faced_capuchin','capuchin_whitefaced'),'White-faced Capuchin', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='opossum_foureyed','Dark Four-eyed Opossum', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='jaguar','Jaguar', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='kinkajou','Kinkajou', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='opossum_water','Water Opossum', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='monkey_spider',"Geoffroy's Spider Monkey", img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='tapir',"Baird's Tapir", img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='rat_spiny',"Tome's Spiny Rat", img_combined$common_name)
+#img_combined$common_name <- ifelse(img_combined$common_name=='capuchin_whitefaced',"White-faced capuchin", img_combined$common_name)
+
+
+unique(img_combined$common_name)
+
+img_combined <- img_combined %>%
+  group_by(common_name) %>% 
+  mutate(species = na_if(species, "")) %>% 
+  fill(species)
+sum(is.na(img_combined$species)) #only failed for kinkajou
+img_combined$species <- ifelse(img_combined$common_name=='Kinkajou','flavus', img_combined$species)
+
+img_combined <- img_combined %>%
+  group_by(common_name) %>% 
+  mutate(genus = na_if(genus, "")) %>% 
+  fill(genus)
+sum(is.na(img_combined$genus))
+img_combined$genus <-ifelse(img_combined$common_name=='Kinkajou','Potos', img_combined$genus)
+
+img_combined <- img_combined %>%
+  group_by(common_name) %>% 
+  mutate(family = na_if(family, "")) %>% 
+  fill(family)
+sum(is.na(img_combined$family))
+img_combined$family <-ifelse(img_combined$common_name=='Kinkajou','Procyonidae', img_combined$family)
+
+img_combined <- img_combined %>%
+  group_by(common_name) %>% 
+  mutate(order = na_if(order, "")) %>% 
+  fill(order)
+sum(is.na(img_combined$order))
+img_combined$order <-ifelse(img_combined$common_name=='Kinkajou','Carnivora', img_combined$order)
+
+img_combined <- img_combined %>%
+  group_by(common_name) %>% 
+  mutate(class = na_if(class, "")) %>% 
+  fill(class)
+sum(is.na(img_combined$class))
+img_combined$class <-ifelse(img_combined$common_name=='Kinkajou','Mammalia', img_combined$class)
+
+unique(img_combined$common_name)
+
+# fix jaguarundi and brocket deer taxonomic confusion
+img_combined$species <- ifelse(img_combined$species=='americana' |  img_combined$genus=='Mazama', 'temama', img_combined$species)
+img_combined$genus <- ifelse(img_combined$species=='yagouaroundi', 'Herpailurus', img_combined$genus)
+img_combined$order <- ifelse(img_combined$common_name=='Central American Red Brocket','Artiodactyla', img_combined$order)
+
+# might as well consolidate Collared Peccary and White-lipped Peccary order
+img_combined$order <- ifelse(img_combined$common_name=='Collared Peccary','Artiodactyla', img_combined$order)
+img_combined$order <- ifelse(img_combined$common_name=='White-lipped Peccary','Artiodactyla', img_combined$order)
+
+# seems the Cebus capucinus does not occur in our study area
+# therefore, records of that species are likely Cebus imitator (ironic)
+img_combined$species <- ifelse(img_combined$species=='capucinus', 'imitator', img_combined$species)
+
 # 6.5.1: Filter to target species:
 # Remove observations without animals detected, where we don't know the species, and non-mammals
 #images[images == ""] <- NA 
-images_sub <- img_combined %>% filter(is_blank==0,                # Remove the blanks
-                          is.na(img_combined$species)==FALSE,  # Remove classifications which don't have species 
-                          class=="Mammalia",          # Subset to mammals
-                          species!="sapiens",
-                          species!='familiaris',)         # Subset to anything that isn't human or domestic dog
-curassow <- subset(img_combined, common_name=='curassow_great') #extract curassow data in case need later
-images_sub <- rbind.data.frame(images_sub, curassow) 
+# img_combined <- img_combined[-which(img_combined$species == ""), ]#remove blanks in species
+# img_combined <- img_combined %>%
+#   filter(is.na(img_combined$species)==F) #remove NA in species
+# 
+# images_sub <- img_combined %>% filter(is_blank==0,                # Remove the blanks
+#                           is.na(img_combined$species)==FALSE,  # Remove classifications which don't have species 
+#                           class=="Mammalia",          # Subset to mammals
+#                           species!="sapiens",
+#                           species!='familiaris',)         # Subset to anything that isn't human or domestic dog
+# curassow <- subset(img_combined, common_name=='curassow_great') #extract curassow data in case need later
+# images_sub <- rbind.data.frame(images_sub, curassow) 
+# 
+# # even rows designated as not blank may have blank in species
+# images_sub$species[images_sub$species==""] <- NA
+# images_sub <- images_sub[!is.na(images_sub$species),]
 
-# even rows designated as not blank may have blank in species
-images_sub$species[images_sub$species==""] <- NA
-images_sub <- images_sub[!is.na(images_sub$species),]
+images_sub <- img_combined
 
 images_sub_species <- images_sub %>% 
   group_by(common_name) %>% 
   summarize(count=n())
-length(unique(images_sub_species$common_name)) #many not at species level
+length(unique(images_sub_species$common_name))
 
 
 # 6.5.2: Create a daily camera activity lookup
@@ -703,7 +820,7 @@ row_lookup <- row_lookup[duplicated(row_lookup)==F,]
 independent <- 30 #if detections 30 mins apart, considered independent (different researchers use different thresholds; can vary by species)
 
 # Check for a `group_size` or 'number_of_objects' variable? 
-table(images_sub$group_size)# no column by this name
+#table(images_sub$group_size)# no column by this name
 table(images_sub$number_of_objects) #not quite the same thing
 # If yes use that, if no use 'number_of_objects'
 images_sub$animal_count <- images_sub$number_of_objects    
@@ -785,6 +902,7 @@ length(unique(ind_dat$species))
 length(unique(images_tmp$species))
 ind_dat$sp <- paste0(ind_dat$genus, '.',ind_dat$species)
 ind_dat$sp <- as.factor(ind_dat$sp)
+length(unique(ind_dat$sp))
 
 ## 6.6 Creating analysis dataframes
 #A data frame of “independent detections” at the 30 minute threshold you specified at the start:
@@ -805,10 +923,12 @@ tmp <- tmp[duplicated(tmp)==F,]
 #write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_camera_locations.csv"), row.names = F)
 
 # final species list
-tmp <- sp_list[sp_list$common_name %in% ind_dat$common_name,]
+#tmp <- sp_list[sp_list$common_name %in% ind_dat$common_name,]
+tmp <- ind_dat[,c('class','order','family','genus','species','common_name','sp')]
+tmp <- distinct(tmp)
 
 # Remove the 'verified' column
-tmp$verified <- NULL
+#tmp$verified <- NULL
 
 # We will replace the spaces in the species names with dots, this will make things easier for us later (as column headings with spaces in are annoying).
 # library(stringr)
@@ -863,7 +983,7 @@ tmp$date <- substr(tmp$date,1,7)
 # Calculate the number of days in each month  
 mon_obs <- tmp %>% 
   group_by(placename,date ) %>%
-  summarise(days = n())
+  summarise(days = n(), .groups="keep")
 # Convert to a data frame
 mon_obs <- as.data.frame(mon_obs)
 
@@ -895,7 +1015,7 @@ tmp$date <- strftime(tmp$date, format = "%Y-W%U")
 # Calculate the number of days in each week  
 week_obs <- tmp %>% 
   group_by(placename,date ) %>%
-  summarise(days = n())
+  summarise(days = n(), .groups="keep")
 
 # Convert to a data frame
 week_obs <- as.data.frame(week_obs)

@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: habitat use and occupancy #########
 # Date: 1-3-24
-# updated:
+# updated: 1-11-24
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -18,7 +18,7 @@ lapply(list.of.packages, require, character.only = TRUE)
 setwd("C:/Users/immccull/Documents/AmistOsa")
 total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_total_observations.csv", header=T)
 sp_summary <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/species_list_traits.csv")
-locs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes.csv") #calculated in CameraTraps_TraitsSiteAttributes script
+locs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv") #calculated in CameraTraps_TraitsSiteAttributes script
 weekly_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_weekly_observations.csv", header=T)
 
 #### Main program ####
@@ -75,12 +75,16 @@ plot(mod_dat$Tapirus.bairdii~mod_dat$z.pct_forest,
      main='Tapir')
 
 ## Basic linear model
-lm_con <- lm(Tapirus.bairdii ~ z.pct_forest, data = mod_dat)
+lm_con <- lm(Tapirus.bairdii ~ z.pct_forest_core + z.elevation_m + z.pct_ag +
+               z.pct_protected + z.canopy_height_m + z.meanForestPatchArea, 
+             data = mod_dat)
 summary(lm_con)
+
+
 
 ## Visualize predictions
 effect_plot(lm_con,                  # The model object
-            pred = z.pct_forest,  # The variable you want to predict
+            pred = z.pct_forest_core,  # The variable you want to predict
             interval = TRUE,         # Whether you want confidence intervals (default = 0.95)
             partial.residuals = T,   # Show the residual variation -after accounting for fixed effects  
             y.label = "Habitat use", # Change the y axis label
@@ -108,6 +112,7 @@ effect_plot(glmm_cat, pred = Protected, interval = TRUE, y.label = "Habitat use"
 # Detection histories using 7-day window
 # Use white-tailed deer
 focal_sp<- "Tapirus.bairdii"
+focal_sp<- "Panthera.onca"
 
 # subset to 2018 (or not)
 tmp_week <- weekly_obs[substr(weekly_obs$date,1,4)==2018,]
@@ -157,33 +162,63 @@ backTransform(m0, type = "det") #probability that we detect the focal species in
 
 # Occupancy is influenced by percent forest
 m1 <- occu(formula = ~1 # detection formula first
-           ~z.pct_forest, # occupancy formula second,
+           ~z.pct_forest_core, # occupancy formula second,
            data = un_dat)
+summary(m1)
+backTransform(m1, type='det')
+#backTransform(m1, type='state')
 
 # Occupancy is influenced by the protection status of land a camera is deployed on
 m2 <- occu(formula = ~1 # detection formula first
            ~Protected, # occupancy formula second,
            data = un_dat)
+summary(m2)
+backTransform(m2, type='det')
+#backTransform(m2, type='state')
 
-model.sel(m0,m1,m2)
+m3 <- occu(formula = ~1 # detection formula first
+           ~z.pct_forest_core + 
+             #z.pct_ag + #highly correlated with pct_forest_core
+             #z.elevation_m + 
+             z.pct_protected,  
+             #z.pct_forest_edge + #highly correlated with pct_forest_core
+             #z.meanForestPatchArea, 
+             #z.canopy_height_m, #highly correlated with pct forest core, # occupancy formula second,
+           data = un_dat)
+summary(m3)
+backTransform(m3, type='det')
+#backTransform(m3, type='state')
 
-# Generate new data to predict from 
+model.sel(m0,m1,m2,m3)
+
+# Generate new data to predict from (within range of calibration data)
 new_dat <- cbind(expand.grid(
-  z.pct_forest=seq(min(z_locs$z.pct_forest),max(z_locs$z.pct_forest), # can add more covariates here if the model is more complex
-                        length.out=25)))
+  z.pct_forest_core=seq(min(z_locs$z.pct_forest_core),max(z_locs$z.pct_forest_core), length.out=25)),
+  z.pct_ag=seq(min(z_locs$z.pct_ag),max(z_locs$z.pct_ag), length.out=25),
+  z.elevation_m=seq(min(z_locs$z.elevation_m),max(z_locs$z.elevation_m), length.out=25),
+  z.pct_protected=seq(min(z_locs$z.pct_protected),max(z_locs$z.pct_protected), length.out=25),
+  z.pct_forest_edge=seq(min(z_locs$z.pct_forest_edge),max(z_locs$z.pct_forest_edge), length.out=25),
+  z.meanForestPatchArea=seq(min(z_locs$z.meanForestPatchArea),max(z_locs$z.meanForestPatchArea), length.out=25),
+  z.canopy_height_m=seq(min(z_locs$z.canopy_height_m),max(z_locs$z.canopy_height_m), length.out=25))
 
 # Make the predicted values for the data you supplied                 
-new_dat <- predict(m1, type="state", newdata = new_dat, appendData=TRUE)
-
+new_dat <- predict(m3, type="state", newdata = new_dat, appendData=TRUE)
 
 #Plot the results
-
-p1 <- ggplot(new_dat, aes(x = z.pct_forest, y = Predicted)) + # mean line
+p1 <- ggplot(new_dat, aes(x = z.pct_protected, y = Predicted)) + # mean line
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
   geom_path(size = 1) +
   ggtitle(focal_sp)+
-  labs(x = "Percent forest", y = "Occupancy probability") + # axis labels
+  labs(x = "Percent protected", y = "Occupancy probability") + # axis labels
   theme_classic() +
   coord_cartesian(ylim = c(0,1))
-
 p1
+
+p2 <- ggplot(new_dat, aes(x = z.pct_forest_core, y = Predicted)) + # mean line
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
+  geom_path(size = 1) +
+  ggtitle(focal_sp)+
+  labs(x = "Percent core forest", y = "Occupancy probability") + # axis labels
+  theme_classic() +
+  coord_cartesian(ylim = c(0,1))
+p2
