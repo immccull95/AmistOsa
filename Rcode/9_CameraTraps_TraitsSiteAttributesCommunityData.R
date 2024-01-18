@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 1-11-24: compare 100m and 500m buffers
+# updated: 1-16-24: add distance to core forest habitat
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -76,8 +76,8 @@ conductance <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_canopyhe
 
 # Combined camera trap site attribute data (if already run)
 # use either 100 m or 500 m buffer datasets
-cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_100mbuff.csv")
-#cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv")
+#cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_100mbuff.csv")
+cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv")
 
 #### Main program ####
 ## Trait data
@@ -871,6 +871,17 @@ cameras_pts_buff_forest_core$buffer_areasqm <- terra::expanse(cameras_pts_buff, 
 cameras_pts_buff_forest_core$pct_forest_core <- cameras_pts_buff_forest_core$coreforest_areasqm/cameras_pts_buff_forest_core$buffer_areasqm
 cameras_pts_buff_forest_core$pct_forest_core <- ifelse(cameras_pts_buff_forest_core$pct_forest_core > 1, 1, cameras_pts_buff_forest_core$pct_forest_core)
 
+## distance to core forest
+forest_core_dissolved <- terra::aggregate(forest_core)
+# needed to dissolve core forest into single polygon
+# for some unknown reason, function was returning 0 distance between each camera and most core forest patches, which does not make sense
+core_camera_distance <- terra::distance(cameras_pts, forest_core_dissolved, unit='m')
+core_camera_distance_df <- as.data.frame(core_camera_distance)
+names(core_camera_distance_df) <- 'forest_core_dist_m'
+#core_camera_distance_df$min <- apply(core_camera_distance_df, 1, FUN = min)
+summary(core_camera_distance_df)
+hist(core_camera_distance_df$forest_core_dist_m)
+
 ## Ag
 cameras_pts_buff_ag <- terra::extract(ag, cameras_pts_buff, fun='table', na.rm=T)
 names(cameras_pts_buff_ag) <- c('ID','nAgCells')
@@ -915,9 +926,11 @@ protected_cameras_df$Protected <- 'Yes'
 protected_cameras_df <- protected_cameras_df[,c('placename','Protected')]
 
 # Protected area distance
+# unlike with core forest patches above, made no difference to use protected areas or dissolved protected areas
 pa_camera_distance <- terra::distance(cameras_pts, protected_areas, unit='m')
 pa_camera_distance_df <- as.data.frame(pa_camera_distance)
 pa_camera_distance_df$min <- apply(pa_camera_distance_df, 1, FUN = min)
+summary(pa_camera_distance_df$min)
 
 ## percent protected
 cameras_pts_buff_pct_protected <- terra::intersect(cameras_pts_buff, protected_areas_dissolved)
@@ -949,7 +962,7 @@ cameras_pts_buff_roads_summary$nRoads_persqkm <- cameras_pts_buff_roads_summary$
 
 # Assemble dataframe of attributes to join to image data
 cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_pts_buff_ag[,c(2,3,5)], cameras_pts_buff_ag_patches_summary[,c(2,5)],
-                            cameras_pts_buff_forest[,c(2,3,5)], cameras_pts_buff_forest_core[,c(2,3,5)],
+                            cameras_pts_buff_forest[,c(2,3,5)], cameras_pts_buff_forest_core[,c(2,3,5)], core_camera_distance_df,
                             cameras_pts_buff_forest_patches_summary[,c(2,5)], 
                             cameras_pts_buff_current_flow, cameras_pts_buff_conductance, cameras_pts_buff_roads_summary[,c(2,4)],
                             pa_camera_distance_df[,c(22)],
@@ -957,9 +970,9 @@ cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_
 cameras_merger <- do.call(cbind.data.frame, cameras_merger_list)
 #cameras_merger <- cameras_merger %>% select(-matches('ID'))
 cameras_merger <- merge(cameras_merger, protected_cameras_df, by='placename', all=T)
-cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,24,26:31)] #get rid of replicated ID columns
-colnames(cameras_merger)[19] <- "protected_area_dist_m"
-colnames(cameras_merger)[20] <- "pct_protected"
+cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,23,25,27:32)] #get rid of replicated ID columns
+colnames(cameras_merger)[20] <- "protected_area_dist_m"
+colnames(cameras_merger)[21] <- "pct_protected"
 # replace NA in protected with "No" to indicate not protected
 cameras_merger[c("Protected")][is.na(cameras_merger[c("Protected")])] <- 'No'
 table(cameras_merger$Protected)
@@ -977,7 +990,7 @@ cameras_merger$pct_forest_edge <- cameras_merger$pct_forest - cameras_merger$pct
 ## Correlations among potential predictors
 candidate_predictors <- cameras_merger[,c('elevation_m','pct_ag','pct_forest_core','pct_forest_edge',
                           'pct_protected','protected_area_dist_m','canopy_height_m',
-                          'meanForestPatchArea','nForestPatches')]
+                          'meanForestPatchArea','nForestPatches','forest_core_dist_m')]
 M <- cor(candidate_predictors, method='spearman', use='pairwise.complete.obs')
 
 par(mfrow=c(1,1))
@@ -1050,10 +1063,10 @@ hist(cameras_merger$mean_conductance, main='Mean conductance',
 cameras_500m <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv")
 cameras_100m <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_100mbuff.csv")
 
-cameras_500m_cp <- cameras_500m[,c(6:20,22)]
+cameras_500m_cp <- cameras_500m[,c(6:21,23)]
 colnames(cameras_500m_cp) <- paste0(colnames(cameras_500m_cp), '_500m')
 
-cameras_100m_cp <- cameras_100m[,c(6:20,22)]
+cameras_100m_cp <- cameras_100m[,c(6:21,23)]
 colnames(cameras_100m_cp) <- paste0(colnames(cameras_100m_cp), '_100m')
 
 cameras_cp <- cbind.data.frame(cameras_500m_cp, cameras_100m_cp)
@@ -1063,7 +1076,8 @@ cor(cameras_cp$canopy_height_m_500m, cameras_cp$canopy_height_m_100m, method='sp
 cor(cameras_cp$pct_ag_500m, cameras_cp$pct_ag_100m, method='spearman')
 cor(cameras_cp$pct_forest_500m, cameras_cp$pct_forest_100m, method='spearman')
 cor(cameras_cp$pct_forest_core_500m, cameras_cp$pct_forest_core_100m, method='spearman')
-cor(cameras_cp$protected_area_dist_m_100m, cameras_cp$protected_area_dist_m_500m, method='spearman')
+cor(cameras_cp$forest_core_dist_m_500m, cameras_cp$forest_core_dist_m_100m, method='spearman')
+cor(cameras_cp$protected_area_dist_m_500m, cameras_cp$protected_area_dist_m_100m, method='spearman')
 cor(cameras_cp$meanForestPatchArea_500m, cameras_cp$meanForestPatchArea_100m, method='spearman')
 cor(cameras_cp$meanAgPatchArea_500m, cameras_cp$meanAgPatchArea_100m, method='spearman')
 cor(cameras_cp$pct_protected_500m, cameras_cp$pct_protected_100m, method='spearman')
