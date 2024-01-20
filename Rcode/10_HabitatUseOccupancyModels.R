@@ -655,6 +655,7 @@ library(mgcv)
 mod_lm = gam(Tapirus.bairdii ~ z.meanForestPatchArea, data = mod_dat)
 summary(mod_lm)
 
+# Note: seems like meanForestPatchArea is the best predictor; others may be signif in some cases but don't improve deviance explained much
 gam_tapir = gam(Tapirus.bairdii ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
 gam_tapir = gam(Tapirus.bairdii ~ s(z.meanForestPatchArea), data = mod_dat)
 summary(gam_tapir)

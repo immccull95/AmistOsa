@@ -60,19 +60,24 @@ forest_core <- terra::vect("Data/spatial/LandscapeStructure/forest_polygons_core
 
 # Current flow
 current_flow <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked.tif")
+current_flow_80th <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked_80thpctNEW.tif")
 
 # protected areas
 protected_areas <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa.shp")
 protected_areas_dissolved <- terra::aggregate(protected_areas, dissolve=T)
 
 # top5 LCP
-top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
+#top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
+top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5_1000mbuff.shp")
 
 # Roads
 roads <- terra::vect("Data/spatial/Redcamino2014crtm05/AmistOsa_roads_31971.shp")
 
 # Conductance
 conductance <- terra::rast("Data/spatial/LULC/AmistOsa_LULC_conductance_canopyheightmod.tif")
+
+# SINAC biological corridors (clipped to AmistOsa)
+SINAC_bc <- terra::vect("Data/spatial/protected_areas/BiologicalCorridors_AmistOsa_clip.shp")
 
 # Combined camera trap site attribute data (if already run)
 # use either 100 m or 500 m buffer datasets
@@ -371,45 +376,51 @@ tapir <- subset(happy_data, Tapirus.bairdii==1)
 terra::plot(AmistOsa, main='Tapir')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% tapir$placename), add=T, col='gold')
+tapir_pts <- subset(cameras_pts, cameras_pts$placename %in% tapir$placename)
+terra::plot(tapir_pts, add=T, col='gold')
 
 jaguar <- subset(happy_data, Panthera.onca==1)
 terra::plot(AmistOsa, main='Jaguar')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguar$placename), add=T, col='gold')
+jaguar_pts <- subset(cameras_pts, cameras_pts$placename %in% jaguar$placename)
+terra::plot(jaguar_pts, add=T, col='gold')
 
 whitelipped <- subset(happy_data, Tayassu.pecari==1)
 terra::plot(AmistOsa, main='White-lipped peccary')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% whitelipped$placename), add=T, col='gold')
+whitelipped_pts <- subset(cameras_pts, cameras_pts$placename %in% whitelipped$placename)
+terra::plot(whitelipped_pts, add=T, col='gold')
 
 collared <- subset(happy_data, Pecari.tajacu==1)
 terra::plot(AmistOsa, main='Collared peccary')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% collared$placename), add=T, col='gold')
+collared_pts <- subset(cameras_pts, cameras_pts$placename %in% collared$placename)
+terra::plot(collared_pts, add=T, col='gold')
 
 puma <- subset(happy_data, Puma.concolor==1)
 terra::plot(AmistOsa, main='Puma')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% puma$placename), add=T, col='gold', legend=T)
+puma_pts <- subset(cameras_pts, cameras_pts$placename %in% puma$placename)
+terra::plot(puma_pts, add=T, col='gold')
 #legend('topright', legend=c('Yes','No'), pch=c(20,20), col=c('gold','black'))
 
 curassow <- subset(happy_data, Crax.rubra==1)
 terra::plot(AmistOsa, main='Great curassow')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% curassow$placename), add=T, col='gold')
+curassow_pts <- subset(cameras_pts, cameras_pts$placename %in% curassow$placename)
+terra::plot(curassow_pts, add=T, col='gold')
 
 paca <- subset(happy_data, Cuniculus.paca==1)
 terra::plot(AmistOsa, main='Paca')
 terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
-terra::plot(subset(cameras_pts, cameras_pts$placename %in% paca$placename), add=T, col='gold')
-
+paca_pts <- subset(cameras_pts, cameras_pts$placename %in% paca$placename)
+terra::plot(paca_pts, add=T, col='gold')
 
 # ocelot <- subset(happy_data, Leopardus.pardalis==1)
 # terra::plot(AmistOsa, main='Ocelot')
@@ -428,6 +439,245 @@ terra::plot(subset(cameras_pts, cameras_pts$placename %in% paca$placename), add=
 # terra::plot(protected_areas_dissolved, add=T, col='gray80')
 # terra::plot(cameras_pts, add=T, col='black')
 # terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguarundi$placename), add=T, col='gold')
+
+#### How about some basic information on detections ####
+# inside vs. outside of protected areas
+# within SINAC biological corridors
+# in relation to conductance, current or LCPs from our study
+
+# Cameras in protected areas
+cameras_PAs <- terra::intersect(cameras_pts, protected_areas_dissolved)
+length(unique(cameras_PAs$placename))
+cameras_PAs
+
+tapir_protected <- terra::intersect(tapir_pts, protected_areas_dissolved)
+nrow(tapir_protected)/nrow(tapir) #% of cameras detecting target sp in protected areas
+
+jaguar_protected <- terra::intersect(jaguar_pts, protected_areas_dissolved)
+nrow(jaguar_protected)/nrow(jaguar) #% of cameras detecting target sp in protected areas
+
+whitelipped_protected <- terra::intersect(whitelipped_pts, protected_areas_dissolved)
+nrow(whitelipped_protected)/nrow(whitelipped) #% of cameras detecting target sp in protected areas
+
+puma_protected <- terra::intersect(puma_pts, protected_areas_dissolved)
+nrow(puma_protected)/nrow(puma) #% of cameras detecting target sp in protected areas
+
+collared_protected <- terra::intersect(collared_pts, protected_areas_dissolved)
+nrow(collared_protected)/nrow(collared) #% of cameras detecting target sp in protected areas
+
+curassow_protected <- terra::intersect(curassow_pts, protected_areas_dissolved)
+nrow(curassow_protected)/nrow(curassow) #% of cameras detecting target sp in protected areas
+
+paca_protected <- terra::intersect(paca_pts, protected_areas_dissolved)
+nrow(paca_protected)/nrow(paca) #% of cameras detecting target sp in protected areas
+
+## the SINAC biological corridors:
+# cameras in SINAC bcs
+cameras_SINAC_bc <- terra::intersect(cameras_pts, SINAC_bc)
+length(unique(cameras_SINAC_bc$placename))
+cameras_SINAC_bc
+sum(terra::expanse(SINAC_bc, unit="km"))
+
+tapir_SINAC_bc <- terra::intersect(tapir_pts, SINAC_bc)
+nrow(tapir_SINAC_bc)/nrow(tapir) #% of cameras detecting target sp in SINAC_bc areas
+
+jaguar_SINAC_bc <- terra::intersect(jaguar_pts, SINAC_bc)
+nrow(jaguar_SINAC_bc)/nrow(jaguar) #% of cameras detecting target sp in SINAC_bc areas
+
+whitelipped_SINAC_bc <- terra::intersect(whitelipped_pts, SINAC_bc)
+nrow(whitelipped_SINAC_bc)/nrow(whitelipped) #% of cameras detecting target sp in SINAC_bc areas
+
+puma_SINAC_bc <- terra::intersect(puma_pts, SINAC_bc)
+nrow(puma_SINAC_bc)/nrow(puma) #% of cameras detecting target sp in SINAC_bc areas
+
+collared_SINAC_bc <- terra::intersect(collared_pts, SINAC_bc)
+nrow(collared_SINAC_bc)/nrow(collared) #% of cameras detecting target sp in SINAC_bc areas
+
+curassow_SINAC_bc <- terra::intersect(curassow_pts, SINAC_bc)
+nrow(curassow_SINAC_bc)/nrow(curassow) #% of cameras detecting target sp in SINAC_bc areas
+
+paca_SINAC_bc <- terra::intersect(paca_pts, SINAC_bc)
+nrow(paca_SINAC_bc)/nrow(paca) #% of cameras detecting target sp in SINAC_bc areas
+
+## within our LCPs
+# cameras in LCPs
+cameras_LCPs <- terra::intersect(cameras_pts, top5_LCP)
+length(unique(cameras_LCPs$placename))
+
+top5_LCP_dissolved <- terra::aggregate(top5_LCP)
+
+sum(terra::expanse(top5_LCP_dissolved, unit="km"))
+
+tapir_LCP <- terra::intersect(tapir_pts, top5_LCP)
+length(unique(tapir_LCP$placename))/nrow(tapir) #% of cameras detecting target sp in SINAC_bc areas
+
+jaguar_LCP <- terra::intersect(jaguar_pts, top5_LCP)
+length(unique(jaguar_LCP$placename))/nrow(jaguar) #% of cameras detecting target sp in SINAC_bc areas
+
+whitelipped_LCP <- terra::intersect(whitelipped_pts, top5_LCP)
+length(unique(whitelipped_LCP$placename))/nrow(whitelipped) #% of cameras detecting target sp in SINAC_bc areas
+
+collared_LCP <- terra::intersect(collared_pts, top5_LCP)
+length(unique(collared_LCP$placename))/nrow(collared) #% of cameras detecting target sp in SINAC_bc areas
+
+puma_LCP <- terra::intersect(puma_pts, top5_LCP)
+length(unique(puma_LCP$placename))/nrow(puma) #% of cameras detecting target sp in SINAC_bc areas
+
+curassow_LCP <- terra::intersect(curassow_pts, top5_LCP)
+length(unique(curassow_LCP$placename))/nrow(curassow) #% of cameras detecting target sp in SINAC_bc areas
+
+paca_LCP <- terra::intersect(paca_pts, top5_LCP)
+length(unique(paca_LCP$placename))/nrow(paca) #% of cameras detecting target sp in SINAC_bc areas
+
+## Protected portions of LCPs?
+protected_LCPs <- terra::intersect(top5_LCP, protected_areas_dissolved)
+protected_LCPs_cameras <- terra::intersect(cameras_pts, protected_LCPs)
+length(unique(protected_LCPs_cameras$placename))
+protected_LCPs_cameras
+
+sum(terra::expanse(protected_LCPs, unit="km"))
+
+tapir_LCP_protected <- terra::intersect(tapir_pts, protected_LCPs)
+length(unique(tapir_LCP_protected$placename))/nrow(tapir) #% of cameras detecting target sp in SINAC_bc areas
+
+jaguar_LCP_protected <- terra::intersect(jaguar_pts, protected_LCPs)
+length(unique(jaguar_LCP_protected$placename))/nrow(jaguar) #% of cameras detecting target sp in SINAC_bc areas
+
+whitelipped_LCP_protected <- terra::intersect(whitelipped_pts, protected_LCPs)
+length(unique(whitelipped_LCP_protected$placename))/nrow(whitelipped) #% of cameras detecting target sp in SINAC_bc areas
+
+collared_LCP_protected <- terra::intersect(collared_pts, protected_LCPs)
+length(unique(collared_LCP_protected$placename))/nrow(collared) #% of cameras detecting target sp in SINAC_bc areas
+
+puma_LCP_protected <- terra::intersect(puma_pts, protected_LCPs)
+length(unique(puma_LCP_protected$placename))/nrow(puma) #% of cameras detecting target sp in SINAC_bc areas
+
+curassow_LCP_protected <- terra::intersect(curassow_pts, protected_LCPs)
+length(unique(curassow_LCP_protected$placename))/nrow(curassow) #% of cameras detecting target sp in SINAC_bc areas
+
+paca_LCP_protected <- terra::intersect(paca_pts, protected_LCPs)
+length(unique(paca_LCP_protected$placename))/nrow(paca) #% of cameras detecting target sp in SINAC_bc areas
+
+## What about detections in relation to current or conductance?
+# should use just plain points, 100m or 500m buffer?
+tapir_pts_buff <- terra::buffer(tapir_pts, width=500)
+tapir_current <- terra::extract(current_flow, tapir_pts_buff, fun='mean', na.rm=T)
+tapir_conductance <- terra::extract(conductance, tapir_pts_buff, fun='mean', na.rm=T)
+tapir_circuit <- data.frame(current=tapir_current[,2],
+                            conductance=tapir_conductance[,2])
+tapir_circuit$Species <- 'tapir'
+
+jaguar_pts_buff <- terra::buffer(jaguar_pts, width=500)
+jaguar_current <- terra::extract(current_flow, jaguar_pts_buff, fun='mean', na.rm=T)
+jaguar_conductance <- terra::extract(conductance, jaguar_pts_buff, fun='mean', na.rm=T)
+jaguar_circuit <- data.frame(current=jaguar_current[,2],
+                             conductance=jaguar_conductance[,2])
+jaguar_circuit$Species <- 'jaguar'
+
+whitelipped_pts_buff <- terra::buffer(whitelipped_pts, width=500)
+whitelipped_current <- terra::extract(current_flow, whitelipped_pts_buff, fun='mean', na.rm=T)
+whitelipped_conductance <- terra::extract(conductance, whitelipped_pts_buff, fun='mean', na.rm=T)
+whitelipped_circuit <- data.frame(current=whitelipped_current[,2],
+                                  conductance=whitelipped_conductance[,2])
+whitelipped_circuit$Species <- 'whitelipped'
+
+collared_pts_buff <- terra::buffer(collared_pts, width=500)
+collared_current <- terra::extract(current_flow, collared_pts_buff, fun='mean', na.rm=T)
+collared_conductance <- terra::extract(conductance, collared_pts_buff, fun='mean', na.rm=T)
+collared_circuit <- data.frame(current=collared_current[,2],
+                               conductance=collared_conductance[,2])
+collared_circuit$Species <- 'collared'
+
+puma_pts_buff <- terra::buffer(puma_pts, width=500)
+puma_current <- terra::extract(current_flow, puma_pts_buff, fun='mean', na.rm=T)
+puma_conductance <- terra::extract(conductance, puma_pts_buff, fun='mean', na.rm=T)
+puma_circuit <- data.frame(current=puma_current[,2],
+                           conductance=puma_conductance[,2])
+puma_circuit$Species <- 'puma'
+
+curassow_pts_buff <- terra::buffer(curassow_pts, width=500)
+curassow_current <- terra::extract(current_flow, curassow_pts_buff, fun='mean', na.rm=T)
+curassow_conductance <- terra::extract(conductance, curassow_pts_buff, fun='mean', na.rm=T)
+curassow_circuit <- data.frame(current=curassow_current[,2],
+                               conductance=curassow_conductance[,2])
+curassow_circuit$Species <- 'curassow'
+
+paca_pts_buff <- terra::buffer(paca_pts, width=500)
+paca_current <- terra::extract(current_flow, paca_pts_buff, fun='mean', na.rm=T)
+paca_conductance <- terra::extract(conductance, paca_pts_buff, fun='mean', na.rm=T)
+paca_circuit <- data.frame(current=paca_current[,2],
+                           conductance=paca_conductance[,2])
+paca_circuit$Species <- 'paca'
+
+allspecies_circuit <- rbind.data.frame(tapir_circuit, jaguar_circuit, whitelipped_circuit,
+                                       collared_circuit, puma_circuit, curassow_circuit,
+                                       paca_circuit)
+
+boxplot(current ~ Species, data=allspecies_circuit, las=2, xlab='')
+boxplot(conductance ~ Species, data=allspecies_circuit, las=2, xlab='')
+
+# extract current and conductance from 1/1000th of cells in current and conductance rasters
+random_current <- terra::spatSample(current_flow, size=(as.integer(ncell(current_flow)/1000)),
+                                    na.rm=T, as.df=T, values=T)
+random_conductance <- terra::spatSample(conductance, size=(as.integer(ncell(conductance)/1000)),
+                                    na.rm=T, as.df=T, values=T)
+random_circuit <- cbind.data.frame(random_current, random_conductance)
+names(random_circuit) <- c('current','conductance')
+random_circuit$Species <- 'Background'
+
+allspecies_circuit <- rbind.data.frame(allspecies_circuit, random_circuit)
+
+boxplot(current ~ Species, data=allspecies_circuit, las=2, xlab='')
+boxplot(current ~ Species, data=allspecies_circuit, las=2, xlab='', ylim=c(0,1.5))
+boxplot(log(current) ~ Species, data=allspecies_circuit, las=2, xlab='')
+boxplot(conductance ~ Species, data=allspecies_circuit, las=2, xlab='')
+
+## Arguably, we are more interested in movement/movement potential through unprotected areas
+current_flow_unprotected <- terra::mask(current_flow, protected_areas_dissolved, inverse=T)
+current_flow_80th_unprotected <- terra::mask(current_flow_80th, protected_areas_dissolved, inverse=T)
+
+par(mfrow=c(2,4))
+plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='tapir')
+plot(AmistOsa, add=T)
+plot(protected_areas_dissolved, add=T, col='gray80')
+plot(top5_LCP, col='gold', add=T)
+plot(tapir_pts, add=T)
+
+plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='jaguar')
+plot(AmistOsa, add=T)
+plot(protected_areas_dissolved, add=T, col='gray80')
+plot(top5_LCP, col='gold', add=T)
+plot(jaguar_pts, add=T)
+
+plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='WLP')
+plot(AmistOsa, add=T)
+plot(protected_areas_dissolved, add=T, col='gray80')
+plot(top5_LCP, col='gold', add=T)
+plot(whitelipped_pts, add=T)
+
+plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='puma')
+plot(AmistOsa, add=T)
+plot(protected_areas_dissolved, add=T, col='gray80')
+plot(top5_LCP, col='gold', add=T)
+plot(puma_pts, add=T)
+
+plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='collared')
+plot(AmistOsa, add=T)
+plot(protected_areas_dissolved, add=T, col='gray80')
+plot(top5_LCP, col='gold', add=T)
+plot(collared_pts, add=T)
+
+plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='curassow')
+plot(AmistOsa, add=T)
+plot(protected_areas_dissolved, add=T, col='gray80')
+plot(top5_LCP, col='gold', add=T)
+plot(curassow_pts, add=T)
+
+plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='paca')
+plot(AmistOsa, add=T)
+plot(protected_areas_dissolved, add=T, col='gray80')
+plot(top5_LCP, col='gold', add=T)
+plot(paca_pts, add=T)
 
 
 ## 9.3: Sampling unit based accumulation curves
