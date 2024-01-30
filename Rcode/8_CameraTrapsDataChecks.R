@@ -1,6 +1,6 @@
 ##################### AmistOsa camera traps: data checks ##########################
 # Date: 12-12-23
-# updated: 1-10-24: integrate new road survey data
+# updated: 1-26-24: integrate updated OC properties data
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -156,8 +156,9 @@ table(is.na(img_rs$timestamp)) #NA check
 ## analyze records with suspicious timestamps (2015-2019)
 images$year <- year(images$timestamp)
 hist(images$year)
+summary(images$year)
 
-suspect <- subset(images, year %in% c(2015,2016,2017,2018,2019))
+suspect <- subset(images, year %in% c(2015,2016,2017,2018,2019,2106))
 suspect_sites <- subset(images, deployment_id %in% suspect$deployment_id)
 suspect_sites <- suspect_sites[,c('deployment_id','placename','timestamp','year','common_name')]
 unique(suspect_sites$deployment_id)
@@ -675,11 +676,11 @@ fig
 
 ## fill in missing taxonomic information (road survey cameras)
 img_combined <- subset(img_combined, class %in% c('Mammalia',NA) | common_name %in% c('curassow_great','Great Curassow') | project_id=='roadsurvey')
-img_combined <- subset(img_combined, !(common_name %in% c('Rodent','Pecari Species','Peccary Family','Peromyscus Species',
-                                                          'Mammal','Cat Family','Procyon Species','Didelphimorphia Order','Bat',
-                                                          'Dasypus Species','Small Mammal','Leopardus Species','Possum Family','Coati Family',
-                                                          'Sciuridae Family','Armadillo Family','Cervidae Family','Domestic Dog','Cricetidae Family',
-                                                          'Spiny Rat Family','Phyllostomidae Family','Proechimys Species','Carnivorous Mammal','raccoon',
+img_combined <- subset(img_combined, !(common_name %in% c('Rodent','Pecari Species','Peccary Family','Peromyscus Species','Didelphis Species','Bovidae Family','Nasua Species','Muridae Family','Suidae Family',
+                                                          'Mammal','Cat Family','Procyon Species','Didelphimorphia Order','Bat','Human','Horseback Rider', 'Human-Camera Trapper','Skunk Family',
+                                                          'Dasypus Species','Small Mammal','Leopardus Species','Possum Family','Coati Family','Homo Species','Dasyproctidae Family','Primate',
+                                                          'Sciuridae Family','Armadillo Family','Cervidae Family','Domestic Dog','Cricetidae Family','Marmosa Species','Cetartiodactyla Order',
+                                                          'Spiny Rat Family','Phyllostomidae Family','Proechimys Species','Carnivorous Mammal','raccoon','Dasyprocta Species','Wild Boar','Sus Species',
                                                           'bat','bird','opossum_uid','rodent','squirrel_uid','lizard_uid','toad','snake','tinamou')))
 # Need to consolidate/standardize common names (e.g., make "peccary_collared" same as Collared Peccary)
 img_combined$common_name <- ifelse(img_combined$common_name=='peccary_collared','Collared Peccary', img_combined$common_name)
@@ -713,8 +714,13 @@ img_combined$common_name <- ifelse(img_combined$common_name=='tapir',"Baird's Ta
 img_combined$common_name <- ifelse(img_combined$common_name=='rat_spiny',"Tome's Spiny Rat", img_combined$common_name)
 #img_combined$common_name <- ifelse(img_combined$common_name=='capuchin_whitefaced',"White-faced capuchin", img_combined$common_name)
 
+# Finally, a few coatis were logged as Nasua nasua (S American species, not in CR)
+# Most likely these are Nasua narica
+img_combined$species <- ifelse(img_combined$species=='nasua', 'narica', img_combined$species)
+img_combined$common_name <- ifelse(img_combined$common_name=='South American Coati','White-nosed Coati',img_combined$common_name)
 
 unique(img_combined$common_name)
+table(img_combined$species)
 
 img_combined <- img_combined %>%
   group_by(common_name) %>% 
@@ -762,7 +768,7 @@ img_combined$order <- ifelse(img_combined$common_name=='Central American Red Bro
 img_combined$order <- ifelse(img_combined$common_name=='Collared Peccary','Artiodactyla', img_combined$order)
 img_combined$order <- ifelse(img_combined$common_name=='White-lipped Peccary','Artiodactyla', img_combined$order)
 
-# seems the Cebus capucinus does not occur in our study area
+# seems Cebus capucinus does not occur in our study area
 # therefore, records of that species are likely Cebus imitator (ironic)
 img_combined$species <- ifelse(img_combined$species=='capucinus', 'imitator', img_combined$species)
 

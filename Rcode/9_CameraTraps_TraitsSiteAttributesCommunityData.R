@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 1-22-24: some new visuals of basic detection data
+# updated: 1-23-24: some new visuals of basic detection data
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -659,6 +659,8 @@ detection_df[5,13] <- detection_df[5,13]-1
 detection_df[5,5] <- detection_df[5,4]/detection_df[5,10]
 detection_df[5,14] <-detection_df[5,13]/detection_df[5,10]
 
+#write.csv(detection_df, file='Data/spatial/CameraTraps/detection_summary.csv', row.names=F)
+
 ## Try out some visuals
 # with total number of detections
 detection_only_df <- detection_df[,c(1,2,4,13,15)]
@@ -705,63 +707,83 @@ prop_plot
 
 
 ## What about detections in relation to current or conductance?
+par(mfrow=c(1,1))
+hist(current_flow)
+stats::quantile(current_flow, probs=seq(0,1,0.1), na.rm=T)
+
+hist(conductance)
+stats::quantile(conductance, probs=seq(0,1,0.1), na.rm=T)
+
 # should use just plain points, 100m or 500m buffer?
 tapir_pts_buff <- terra::buffer(tapir_pts, width=500)
 tapir_current <- terra::extract(current_flow, tapir_pts_buff, fun='mean', na.rm=T)
 tapir_conductance <- terra::extract(conductance, tapir_pts_buff, fun='mean', na.rm=T)
 tapir_circuit <- data.frame(current=tapir_current[,2],
                             conductance=tapir_conductance[,2])
-tapir_circuit$Species <- 'tapir'
+tapir_circuit$Species <- 'Tapir'
 
 jaguar_pts_buff <- terra::buffer(jaguar_pts, width=500)
 jaguar_current <- terra::extract(current_flow, jaguar_pts_buff, fun='mean', na.rm=T)
 jaguar_conductance <- terra::extract(conductance, jaguar_pts_buff, fun='mean', na.rm=T)
 jaguar_circuit <- data.frame(current=jaguar_current[,2],
                              conductance=jaguar_conductance[,2])
-jaguar_circuit$Species <- 'jaguar'
+jaguar_circuit$Species <- 'Jaguar'
 
 whitelipped_pts_buff <- terra::buffer(whitelipped_pts, width=500)
 whitelipped_current <- terra::extract(current_flow, whitelipped_pts_buff, fun='mean', na.rm=T)
 whitelipped_conductance <- terra::extract(conductance, whitelipped_pts_buff, fun='mean', na.rm=T)
 whitelipped_circuit <- data.frame(current=whitelipped_current[,2],
                                   conductance=whitelipped_conductance[,2])
-whitelipped_circuit$Species <- 'whitelipped'
+whitelipped_circuit$Species <- 'WLP'
 
 collared_pts_buff <- terra::buffer(collared_pts, width=500)
 collared_current <- terra::extract(current_flow, collared_pts_buff, fun='mean', na.rm=T)
 collared_conductance <- terra::extract(conductance, collared_pts_buff, fun='mean', na.rm=T)
 collared_circuit <- data.frame(current=collared_current[,2],
                                conductance=collared_conductance[,2])
-collared_circuit$Species <- 'collared'
+collared_circuit$Species <- 'Collared'
 
 puma_pts_buff <- terra::buffer(puma_pts, width=500)
 puma_current <- terra::extract(current_flow, puma_pts_buff, fun='mean', na.rm=T)
 puma_conductance <- terra::extract(conductance, puma_pts_buff, fun='mean', na.rm=T)
 puma_circuit <- data.frame(current=puma_current[,2],
                            conductance=puma_conductance[,2])
-puma_circuit$Species <- 'puma'
+puma_circuit$Species <- 'Puma'
 
 curassow_pts_buff <- terra::buffer(curassow_pts, width=500)
 curassow_current <- terra::extract(current_flow, curassow_pts_buff, fun='mean', na.rm=T)
 curassow_conductance <- terra::extract(conductance, curassow_pts_buff, fun='mean', na.rm=T)
 curassow_circuit <- data.frame(current=curassow_current[,2],
                                conductance=curassow_conductance[,2])
-curassow_circuit$Species <- 'curassow'
+curassow_circuit$Species <- 'Curassow'
 
 paca_pts_buff <- terra::buffer(paca_pts, width=500)
 paca_current <- terra::extract(current_flow, paca_pts_buff, fun='mean', na.rm=T)
 paca_conductance <- terra::extract(conductance, paca_pts_buff, fun='mean', na.rm=T)
 paca_circuit <- data.frame(current=paca_current[,2],
                            conductance=paca_conductance[,2])
-paca_circuit$Species <- 'paca'
+paca_circuit$Species <- 'Paca'
 
 allspecies_circuit <- rbind.data.frame(tapir_circuit, jaguar_circuit, whitelipped_circuit,
                                        collared_circuit, puma_circuit, curassow_circuit,
                                        paca_circuit)
+str(allspecies_circuit)
+allspecies_circuit$Species_fac <- as.factor(allspecies_circuit$Species)
+allspecies_circuit$Species_fac <- factor(allspecies_circuit$Species_fac, 
+                                         levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'))
 
-boxplot(current ~ Species, data=allspecies_circuit, las=2, xlab='')
-boxplot(conductance ~ Species, data=allspecies_circuit, las=2, xlab='')
+# jpeg(filename='Figures/AmistOsa_conductance_current_boxplots.jpeg', height=5, width=7, units='in', res=300)
+#   par(mfrow=c(2,1), mai = c(0.5, 1, 0.5, 0.1)) #bot, left, top, right
+#   boxplot(conductance ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
+#         ylab='Conductance', cex.axis=0.75)
+#   title('A) Conductance', adj=0)
+#   boxplot(current ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
+#         ylab='Current', cex.axis=0.75)
+#   title('B) Current', adj=0)
+# dev.off()
 
+
+# Compare to random 1/1000th of landscape
 # extract current and conductance from 1/1000th of cells in current and conductance rasters
 random_current <- terra::spatSample(current_flow, size=(as.integer(ncell(current_flow)/1000)),
                                     na.rm=T, as.df=T, values=T)
@@ -770,17 +792,84 @@ random_conductance <- terra::spatSample(conductance, size=(as.integer(ncell(cond
 random_circuit <- cbind.data.frame(random_current, random_conductance)
 names(random_circuit) <- c('current','conductance')
 random_circuit$Species <- 'Background'
+random_circuit$Species_fac <- 'Background'
 
 allspecies_circuit <- rbind.data.frame(allspecies_circuit, random_circuit)
+allspecies_circuit$Species_fac <- factor(allspecies_circuit$Species_fac,
+                                         levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca','Background'))
 
-boxplot(current ~ Species, data=allspecies_circuit, las=2, xlab='')
-boxplot(current ~ Species, data=allspecies_circuit, las=2, xlab='', ylim=c(0,1.5))
-boxplot(log(current) ~ Species, data=allspecies_circuit, las=2, xlab='')
-boxplot(conductance ~ Species, data=allspecies_circuit, las=2, xlab='')
+high_current <- subset(allspecies_circuit, current >= 0.3469406)
+nrow(high_current)/nrow(allspecies_circuit)
+table(high_current$Species_fac)
 
-## Arguably, we are more interested in movement/movement potential through unprotected areas
+## are these high-current detections in protected areas?
 current_flow_unprotected <- terra::mask(current_flow, protected_areas_dissolved, inverse=T)
 current_flow_80th_unprotected <- terra::mask(current_flow_80th, protected_areas_dissolved, inverse=T)
+plot(current_flow_80th_unprotected)
+current_flow_80th_unprotected_polygons <- terra::as.polygons(current_flow_80th_unprotected)
+
+high_current_unprotected_tapir <- terra::intersect(tapir_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_tapir
+
+high_current_unprotected_jaguar <- terra::intersect(jaguar_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_jaguar
+
+high_current_unprotected_whitelipped <- terra::intersect(whitelipped_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_whitelipped
+
+high_current_unprotected_puma <- terra::intersect(puma_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_puma
+
+high_current_unprotected_collared <- terra::intersect(collared_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_collared
+
+high_current_unprotected_curassow <- terra::intersect(curassow_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_curassow
+
+high_current_unprotected_paca <- terra::intersect(paca_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_paca
+
+
+jpeg(filename='Figures/AmistOsa_conductance_current_boxplots.jpeg', height=5, width=7, units='in', res=300)
+  par(mfrow=c(2,1), mai = c(0.5, 1, 0.5, 0.1)) #bot, left, top, right
+  boxplot(conductance ~ Species_fac, data=allspecies_circuit, las=1, xlab='',
+        ylab='Conductance', cex.axis=0.75)
+  title('A) Conductance', adj=0)
+  boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
+        ylab='log(Current)', cex.axis=0.75, ylim=c(-10,3))
+  title('B) Current', adj=0)
+dev.off()
+
+conductance_summary <- allspecies_circuit %>%
+  dplyr::group_by(Species_fac) %>%
+  dplyr::summarize(min=min(conductance, na.rm=T),
+                   q25=stats::quantile(conductance, probs=c(0.25), na.rm=T),
+                   median=median(conductance, na.rm=T),
+                   q75=stats::quantile(conductance, probs=c(0.75), na.rm=T),
+                   max=max(conductance, na.rm=T),
+                   mean=mean(conductance, na.rm=T),
+                   n=n()) %>%
+  as.data.frame()
+conductance_summary$IQR <- conductance_summary$q75-conductance_summary$q25
+
+current_summary <- allspecies_circuit %>%
+  dplyr::group_by(Species_fac) %>%
+  dplyr::summarize(min=min(current, na.rm=T),
+                   q25=stats::quantile(current, probs=c(0.25), na.rm=T),
+                   median=median(current, na.rm=T),
+                   q75=stats::quantile(current, probs=c(0.75), na.rm=T),
+                   max=max(current, na.rm=T),
+                   mean=mean(current, na.rm=T),
+                   n=n()) %>%
+  as.data.frame()
+current_summary$IQR <- current_summary$q75-current_summary$q25
+
+
+# boxplot(current ~ Species_fac, data=allspecies_circuit, las=2, xlab='')
+boxplot(current ~ Species_fac, data=allspecies_circuit, las=2, xlab='', ylim=c(0,1.5))
+# boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=2, xlab='')
+
+## Arguably, we are more interested in movement/movement potential through unprotected areas
 
 par(mfrow=c(2,4), mai = c(0.1, 0.1, 0.1, 0.1))
 #plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='tapir')
