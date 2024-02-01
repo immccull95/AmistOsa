@@ -1,6 +1,6 @@
 ##################### Mega survey camera traps: formatting ########################
 # Date: 1-29-24
-# updated: 1-30-24
+# updated: 1-31-24: export extracted data deployments
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -121,8 +121,38 @@ deployments_WI_format$placename <- ifelse(deployments_WI_format$Area %in% c('Cor
 # using deployment_id for placename where don't have actual placename
 deployments_WI_format$placename <- ifelse(is.na(deployments_WI_format$placename)==T, deployments_WI_format$deployment_id, deployments_WI_format$placename) 
 
+# Consolidate PILA sites (currently no unique ID to differentiate cameras with same coordinates)
+pila_tump <- subset(deployments_WI_format, placename %in% c('PILA01','PILA02','PILA03','PILA04','PILA05','PILA06','PILA07','PILA08','PILA09','PILA10'))
+other_tump <- subset(deployments_WI_format, !(placename %in% c('PILA01','PILA02','PILA03','PILA04','PILA05','PILA06','PILA07','PILA08','PILA09','PILA10')))
+pila_consol <- pila_tump %>%
+  dplyr::group_by(placename) %>%
+  dplyr::summarize(start=min(start_date), 
+                   end=max(end_date)) %>%
+  as.data.frame()
+
+# insert these back into deployment dataset
+pila_tump <- left_join(pila_tump, pila_consol, by='placename')
+pila_tump$start_date <- pila_tump$start
+pila_tump$end_date <- pila_tump$end
+pila_tump <- pila_tump[,c(1:31)] #remove temporary start and end columns
+pila_tump <- dplyr::distinct(pila_tump, .keep_all=T)
+deployments_WI_format <- rbind.data.frame(other_tump, pila_tump)
+
+# We have a similar issue with MS#54 and 57 in Corcovado (same coordinates)
+# There appear to be 2 cameras, but without recorded start and end dates,
+# there is no way of linking images to either of the 2 cameras when there
+# is no common attribute between the Corcovado camera and image datasets
+# Therefore, we have to treat these as a single camera
+length(unique(deployments_WI_format$placename)) #indeed, only duplicate is Banadero-Planes
+deployments_WI_format <- deployments_WI_format %>%
+  filter(duplicated(placename) == F) %>%
+  as.data.frame()
+
 #write.csv(deployments_WI_format[,c(1:28)], "Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format.csv", row.names=F)
 
+# also save version with just extracted cameras
+deployments_WI_format_ext <- subset(deployments_WI_format, camera_functioning %in% c('extracted', 'extracted '))
+#write.csv(deployments_WI_format_ext[,c(1:28)], "Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format_extracted.csv", row.names=F)
 
 ## Image timestamp formatting
 lasalturas$Hora <- as.ITime(lasalturas$Hora)
@@ -335,12 +365,12 @@ pila <- test2
 
 ## combine 3 sites 
 img_combined <- rbind.data.frame(corcovado, lasalturas, pila)
-#write.csv(img_combined, "Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_formatted.csv", row.names=F)
+#write.csv(img_combined, "Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format.csv", row.names=F)
 
 ## Create camera dataset in WI format
 cameras_WI_format <- data.frame(project_id='megasurvey',camera_id=cameras$site_ID.in.GPS..Corresponding.database,
                                 camera_name=cameras$site_ID, make=cameras$camera_model, model=NA,
-                                serial_number=NA, year_purchased=NA)
+                                serial_number=NA, year_purchased=NA, STATUS=cameras$STATUS) #omit status variable from export; used only to isolated extracted data cameras
 
 cameras_WI_format$make[grep("bushnell", cameras_WI_format$make)] <- "Bushnell"
 cameras_WI_format$make[grep("buchnell", cameras_WI_format$make)] <- "Bushnell"
@@ -352,4 +382,7 @@ cameras_WI_format$make <- ifelse(cameras_WI_format$make %in% c('Bushnel Core','B
 cameras_WI_format$make <- ifelse(cameras_WI_format$make %in% c('Bushnel Trophy ','Bushnell Trophy','Bushnel trophy','Bushnell Trophy '),'Bushnell trophy', cameras_WI_format$make)
 unique(cameras_WI_format$make)
 cameras_WI_format$make[cameras_WI_format$make==""] <- NA
-#write.csv(cameras_WI_format, "Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format.csv", row.names=F)
+#write.csv(cameras_WI_format[,c(1:7)], "Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format.csv", row.names=F)
+
+cameras_WI_format_ext <- subset(cameras_WI_format, STATUS %in% c('extracted ', 'extracted'))
+#write.csv(cameras_WI_format_ext[,c(1:7)], "Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format_extracted.csv", row.names=F)

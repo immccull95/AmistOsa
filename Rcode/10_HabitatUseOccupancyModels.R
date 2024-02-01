@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: habitat use and occupancy #########
 # Date: 1-3-24
-# updated: 1-18-24: try GAM and random forest to predict occupancy
+# updated: 1-31-24: new mega survey camera data
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -18,10 +18,10 @@ library(terra)
 
 #### Input data ####
 setwd("C:/Users/immccull/Documents/AmistOsa")
-total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_total_observations.csv", header=T)
+total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_30min_independent_total_observations.csv", header=T)
 sp_summary <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/species_list_traits.csv")
 locs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv") #calculated in CameraTraps_TraitsSiteAttributes script
-weekly_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_weekly_observations.csv", header=T)
+weekly_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_30min_independent_weekly_observations.csv", header=T)
 
 #### Main program ####
 # Calculate capture rate (proxy for habitat use)
@@ -43,7 +43,7 @@ locs <- locs %>%
   mutate_if(is.character,as.factor)
 
 # Standardize covariates - it helps models coverage and facilitates comparison of effect sizes
-z_locs <- stdize(locs, omit.cols=c('project_id','feature_type','Protected'))
+z_locs <- stdize(locs, omit.cols=c('project_id','feature_type','Protected','natlpark'))
 
 # Join capture rates to camera location attribute data
 mod_dat <- left_join(total_cr, z_locs)
@@ -83,7 +83,8 @@ lm_tapir <- lm(Tapirus.bairdii ~ #z.protected_area_dist_m +
                  #z.elevation_m+
                  #z.pct_forest_edge+
                  #z.canopy_height_m + 
-                 z.meanForestPatchArea, #this one seems to be the only signif one
+                 z.natlpark_dist_m,
+                 #z.meanForestPatchArea, #this one seems to be the only signif one
              data = mod_dat)
 summary(lm_tapir)
 
@@ -216,7 +217,8 @@ m3 <- occu(formula = ~1 # detection formula first
              #z.pct_ag + #highly correlated with pct_forest_core
              #z.elevation_m + 
              #z.pct_protected +
-             z.protected_area_dist_m+  
+             #z.protected_area_dist_m+ 
+             z.natlpark_dist_m+
              #z.pct_forest_edge+ #highly correlated with pct_forest_core
              #z.meanForestPatchArea,
              z.canopy_height_m, #highly correlated with pct forest core, # occupancy formula second,
@@ -228,19 +230,19 @@ backTransform(m3, type='det')
 
 ## Trying random intercept model per lme4
 m4 <- occu(formula = ~1 ~ 
-             z.protected_area_dist_m + 
+             z.natlpark_dist_m + 
              z.canopy_height_m + 
-             (1|Protected),
+             (1|natlpark),
            data=un_dat)
 summary(m4)
 randomTerms(m4, level=0.95) #seems that the intercepts are similar and both close to 0
 
 ## Trying random intercept and slope per lme4
 m5 <- occu(formula = ~1 ~ 
-             z.protected_area_dist_m + 
+             z.natlpark_dist_m + 
              z.canopy_height_m + 
-             (1 + z.protected_area_dist_m || Protected) +
-             (1 + z.canopy_height_m || Protected),
+             (1 + z.natlpark_dist_m || natlpark) +
+             (1 + z.canopy_height_m || natlpark),
            data=un_dat)
 summary(m5)
 randomTerms(m5, level=0.95)
@@ -256,6 +258,7 @@ new_dat <- cbind(expand.grid(
   z.pct_forest_edge=seq(min(z_locs$z.pct_forest_edge),max(z_locs$z.pct_forest_edge), length.out=25),
   z.meanForestPatchArea=seq(min(z_locs$z.meanForestPatchArea),max(z_locs$z.meanForestPatchArea), length.out=25),
   z.protected_area_dist_m=seq(min(z_locs$z.protected_area_dist_m),max(z_locs$z.protected_area_dist_m), length.out=25),
+  z.natlpark_dist_m=seq(min(z_locs$z.natlpark_dist_m),max(z_locs$z.natlpark_dist_m), length.out=25),
   z.forest_core_dist_m=seq(min(z_locs$z.forest_core_dist_m),max(z_locs$z.forest_core_dist_m), length.out=25),
   z.canopy_height_m=seq(min(z_locs$z.canopy_height_m),max(z_locs$z.canopy_height_m), length.out=25))
 
@@ -263,11 +266,11 @@ new_dat <- cbind(expand.grid(
 new_dat <- predict(m3, type="state", newdata = new_dat, appendData=TRUE)
 
 #Plot the results
-p1 <- ggplot(new_dat, aes(x = z.protected_area_dist_m, y = Predicted)) + # mean line
+p1 <- ggplot(new_dat, aes(x = z.natlpark_dist_m, y = Predicted)) + # mean line
   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
   geom_path(size = 1) +
   ggtitle(focal_sp)+
-  labs(x = "Distance to protected area", y = "Occupancy probability") + # axis labels
+  labs(x = "Distance to NP", y = "Occupancy probability") + # axis labels
   theme_classic() +
   coord_cartesian(ylim = c(0,1))
 p1
@@ -300,6 +303,10 @@ forest_core <- terra::vect("Data/spatial/LandscapeStructure/forest_polygons_core
 protected_areas <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa.shp")
 protected_areas_dissolved <- terra::aggregate(protected_areas, dissolve=T)
 
+natlparks <- subset(protected_areas, protected_areas$NAME %in% c('Piedras Blancas','Corcovado','La Amistad',
+                                                                 'Internacional La Amistad','Talamanca Range-La Amistad Reserves / La Amistad National Park'))
+natlparks_dissolved <- terra::aggregate(natlparks)
+
 # canopy height
 canopy <- terra::rast("Data/spatial/CanopyHeight/AmistOsa_CanopyHeight.tif")
 
@@ -330,6 +337,11 @@ hist(forest_core_grid_rast)
 ## distance to forest core
 forest_core_distance_rast <- terra::distance(forest_core_grid_rast, forest_core)
 plot(forest_core_distance_rast)
+plot(AmistOsa, add=T)
+
+## distance to national park
+natlpark_distance_rast <- terra::distance(forest_core_grid_rast, natlparks_dissolved)
+plot(natlpark_distance_rast)
 plot(AmistOsa, add=T)
 
 ## percent protection
@@ -484,6 +496,10 @@ forest_core_distance_rast_std <- standard_rast_function(forest_core_distance_ras
 plot(forest_core_distance_rast_std)
 forest_core_distance_rast_std
 
+natlpark_distance_rast_std <- standard_rast_function(natlpark_distance_rast)
+plot(natlpark_distance_rast_std)
+natlpark_distance_rast_std
+
 pct_ag_grid_rast_std <- standard_rast_function(pct_ag_grid_rast)
 plot(pct_ag_grid_rast_std)
 pct_ag_grid_rast_std
@@ -516,6 +532,15 @@ protected_binary_rast
 plot(protected_binary_rast)
 summary(protected_binary_rast)
 
+# and NP or not NP
+natlpark_grid <- terra::intersect(AmistOsa_grid10, natlparks_dissolved)
+natlpark_grid_rast <- terra::rasterize(natlpark_grid, AmistOsa_rast10, field=1)
+natlparks_dissolved$natlpark <- 1
+natlpark_binary_rast <- terra::ifel(is.na(natlpark_grid_rast), 0, natlpark_grid_rast)
+natlpark_binary_rast
+plot(natlpark_binary_rast)
+summary(natlpark_binary_rast)
+
 
 # forest_core_grid_rast_df <- as.data.frame(forest_core_grid_rast)
 # test <- stdize(forest_core_grid_rast_df)
@@ -543,27 +568,32 @@ pred_dat <- cbind.data.frame(forest_core_grid_rast_std,
                   canopy_resampled_std, 
                   protected_area_distance_rast_std, 
                   forest_core_distance_rast_std,
+                  natlpark_distance_rast_std,
                   pct_ag_grid_rast,
                   forest_patcharea_grid_rast_std,
                   forest_npatch_grid_rast_std,
                   protected_binary_rast) #had to get rid of NAs for this to work
 names(pred_dat) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                     'z.protected_area_dist_m','z.forest_core_dist_m','z.pct_ag',
+                     'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.pct_ag',
                      'z.meanForestPatchArea',' z.nForestPatches','Protected')
 pred_dat$Protected <- ifelse(pred_dat$Protected==1, 'Yes','No')
 pred_dat$Protected <- as.factor(pred_dat$Protected)
 
 pred_dat <- predict(m3, type="state", newdata = pred_dat, appendData=TRUE)
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
+xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))#just need coordinates
 pred_dat$x <- xy[,1]
 pred_dat$y <- xy[,2]
 pred_dat_tmp <- pred_dat[,c('x','y','Predicted')]
 
 prediction_rasterm3 <- terra::rast(pred_dat_tmp, type='xyz', crs=crs(protected_grid_rast))
 prediction_rasterm3
-terra::plot(prediction_rasterm3, main=focal_sp)#, range=c(0,0.8))
+terra::plot(prediction_rasterm3, main=focal_sp, range=c(0,1))#, range=c(0,0.8))
 plot(AmistOsa, add=T)
 hist(prediction_rasterm3)
+
+prediction_rasterm3_mask <- terra::mask(prediction_rasterm3, AmistOsa, inverse=F)
+plot(prediction_rasterm3_mask, main=focal_sp)
+plot(AmistOsa, add=T)
 
 crossVal(m3, method='Kfold', folds=10)
 
@@ -573,11 +603,16 @@ pred_datm4 <- cbind.data.frame(forest_core_grid_rast_std,
                                canopy_resampled_std, 
                                protected_area_distance_rast_std, 
                                forest_core_distance_rast_std,
-                               protected_binary_rast) #had to get rid of NAs for this to work
+                               natlpark_distance_rast_std,
+                               protected_binary_rast,
+                               natlpark_binary_rast) #had to get rid of NAs for this to work
 names(pred_datm4) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                       'z.protected_area_dist_m','z.forest_core_dist_m','Protected')
+                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m',
+                       'Protected','natlpark')
 pred_datm4$Protected <- ifelse(pred_datm4$Protected==1, 'Yes','No')
 pred_datm4$Protected <- as.factor(pred_datm4$Protected)
+pred_datm4$natlpark <- ifelse(pred_datm4$natlpark==1, 'Yes','No')
+pred_datm4$natlpark <- as.factor(pred_datm4$natlpark)
 
 pred_datm4 <- predict(m4, type="state", newdata = pred_datm4, appendData=TRUE)
 xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
@@ -587,7 +622,7 @@ pred_datm4_tmp <- pred_datm4[,c('x','y','Predicted')]
 
 prediction_rasterm4 <- terra::rast(pred_datm4_tmp, type='xyz', crs=crs(protected_grid_rast))
 prediction_rasterm4
-plot(prediction_rasterm4, main=focal_sp, range=c(0,0.8))
+plot(prediction_rasterm4, main=focal_sp, range=c(0,1))
 plot(AmistOsa, add=T)
 
 crossVal(m4, method='Kfold', folds=10)
@@ -598,11 +633,16 @@ pred_datm5 <- cbind.data.frame(forest_core_grid_rast_std,
                                canopy_resampled_std, 
                                protected_area_distance_rast_std, 
                                forest_core_distance_rast_std,
-                               protected_binary_rast) #had to get rid of NAs for this to work
+                               natlpark_distance_rast_std,
+                               protected_binary_rast,
+                               natlpark_binary_rast) #had to get rid of NAs for this to work
 names(pred_datm5) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                       'z.protected_area_dist_m','z.forest_core_dist_m','Protected')
+                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m',
+                       'Protected','natlpark')
 pred_datm5$Protected <- ifelse(pred_datm5$Protected==1, 'Yes','No')
 pred_datm5$Protected <- as.factor(pred_datm5$Protected)
+pred_datm5$natlpark <- ifelse(pred_datm5$natlpark==1, 'Yes','No')
+pred_datm5$natlpark <- as.factor(pred_datm5$natlpark)
 
 pred_datm5 <- predict(m5, type="state", newdata = pred_datm5, appendData=TRUE)
 xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
@@ -612,9 +652,13 @@ pred_datm5_tmp <- pred_datm5[,c('x','y','Predicted')]
 
 prediction_rasterm5 <- terra::rast(pred_datm5_tmp, type='xyz', crs=crs(protected_grid_rast))
 prediction_rasterm5
-plot(prediction_rasterm5, main=focal_sp, range=c(0,0.8))
+plot(prediction_rasterm5, main=focal_sp, range=c(0,1))
 plot(AmistOsa, add=T)
 hist(prediction_rasterm5)
+
+prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5, natlparks_dissolved, inverse=T)
+prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5, AmistOsa, inverse=F)
+plot(prediction_rasterm5_unNP)
 
 crossVal(m5, method='Kfold', folds=10)
 

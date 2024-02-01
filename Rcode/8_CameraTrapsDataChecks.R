@@ -1,6 +1,6 @@
 ##################### AmistOsa camera traps: data checks ##########################
 # Date: 12-12-23
-# updated: 1-26-24: integrate updated OC properties data
+# updated: 1-31-24: integrate mega survey
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -51,6 +51,12 @@ sp_list2 <- read.csv("Data/spatial/CameraTraps/wildlife-insights/OSAGRID/sp_list
 dep_rs <- read.csv("Data/spatial/CameraTraps/road_survey/station_info.csv")
 img_rs <- read.csv("Data/spatial/CameraTraps/road_survey/database_main.csv")
 
+# Mega survey dataset (currently only using deployments with extracted data)
+dep_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format_extracted.csv")
+img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format.csv")
+cameras_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format_extracted.csv")
+projects_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/projects_megasurvey_WI_format.csv")
+
 # DEM
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
 
@@ -83,6 +89,12 @@ duplicated(dep2$deployment_id)
 img_rs <- subset(img_rs, DeleteFlag==FALSE)# get rid of images already slated for removal
 img_rs <- img_rs[!(is.na(img_rs$Species) | img_rs$Species==""), ] #get rid of blank images
 
+# megasurvey needs deployment_id
+dep_place <- dep_ms[,c('deployment_id','placename')]
+img_ms <- left_join(img_ms, dep_place, by='placename')
+img_ms$deployment_id <- img_ms$deployment_id.y
+img_ms <- img_ms[,c(1,30, 3:28)]
+
 #deployments$roww <- seq(1,nrow(deployments), 1)
 # found OCCT06_M103_9112022 as duplicated
 # only keep distinct rows based on deployment_id
@@ -111,6 +123,9 @@ dep_rs$placename <- dep_rs$station
 dep_rs_placenames <- dep_rs[,c('station','placename')]
 img_rs <- left_join(img_rs, dep_rs_placenames, by=c('StationCode'='station'), relationship='many-to-many')
 sum(is.na(img_rs$placename))
+
+img_ms <- left_join(img_ms, dep_ms, by='placename')
+sum(is.na(img_ms$placename))
 
 #missing <- subset(images, is.na(images$placename==T)) #all rows slated for removal
 
@@ -152,6 +167,14 @@ table(is.na(img2$timestamp)) #NA check
 img_rs$timestamp <- ymd_hms(img_rs$DateTime)
 range(img_rs$timestamp) #check range of timestamps 
 table(is.na(img_rs$timestamp)) #NA check
+
+# test <- img_ms
+# test$time <- ymd_hms(test$timestamp)
+# test <- test[,c('time','timestamp')]
+img_ms$timestamp <- ymd_hms(img_ms$timestamp)
+img_ms <- img_ms %>% drop_na(timestamp) #get rid of one row that has weird date; could be malfunction
+range(img_ms$timestamp) #check range of timestamps 
+table(is.na(img_ms$timestamp)) #NA check
 
 ## analyze records with suspicious timestamps (2015-2019)
 images$year <- year(images$timestamp)
@@ -214,12 +237,42 @@ dep_rs$start <- ymd(mdy(dep_rs$start)) #wonky, I know
 dep_rs$days <- interval(dep_rs$start, dep_rs$end)/ddays(1)
 hist(dep_rs$days)
 
+# For mega survey, need to fill in missing camera start/end dates for Corcovado cameras (and 1 other) based on image dates
+sum(is.na(img_ms$start_date))
+sum(is.na(img_ms$end_date))
+
+ms_startenddates <- img_ms %>%
+  dplyr::group_by(placename) %>%
+  dplyr::summarize(camstart = min(timestamp),
+                   camend = max(timestamp)) %>%
+  as.data.frame()
+ms_startenddates <- subset(ms_startenddates, placename %in% c('Aguas Azules','Banadero-Planes','Cabecera Rio Pavon','OWA','Ollas','Termo','Ticho-Planes','Rio Pavo','SITE_48'))
+ms_startenddates$camstart <- as.Date(ms_startenddates$camstart) #only want ymd
+ms_startenddates$camend <- as.Date(ms_startenddates$camend)
+# but already have recorded start date for SITE_48, so should remove
+ms_startenddates[7,2] <- NA
+
+# but start and end dates somehow lost their date formatting? #$@#$
+sum(is.na(img_ms$start_date))
+sum(is.na(img_ms$end_date))
+img_ms$start_date <- ymd(img_ms$start_date)
+img_ms$end_date <- ymd(img_ms$end_date)
+
+img_ms <- left_join(img_ms, ms_startenddates, by='placename')
+
+img_ms <- img_ms %>%
+  mutate(start_date = coalesce(start_date, camstart),
+         end_date = coalesce(end_date, camend)) #works
+sum(is.na(img_ms$start_date)) #should be zero if everything matched
+sum(is.na(img_ms$end_date))
+img_ms <- img_ms[,c(1:55)]
+
 # Basic camera trap summaries#
 # Count the number of camera locations
 paste(length(unique(deployments$placename)), "locations"); paste(length(unique(deployments$deployment_id)), "deployments");paste(nrow(images), "image labels"); paste(nrow(images[images$is_blank == TRUE,]), "blanks")
 paste(length(unique(dep2$placename)), "locations"); paste(length(unique(dep2$deployment_id)), "deployments");paste(nrow(img2), "image labels"); paste(nrow(img2[img2$is_blank == TRUE,]), "blanks")
 paste(length(unique(dep_rs$placename)), "locations"); paste(length(unique(dep_rs$placename)), "deployments");paste(nrow(img_rs), "image labels"); paste(nrow(img_rs[img_rs$is_blank == TRUE,]), "blanks")
-
+#paste(length(unique(dep_ms$placename)), "locations"); paste(length(unique(dep_ms$placename)), "deployments");paste(nrow(img_ms), "image labels"); paste(nrow(img_ms[img_ms$is_blank == TRUE,]), "blanks")#ignore; blank column is misleading here
 
 ## 5.4 error checks
 # map the camera locations (however, does not appear that we have incorrect location data)
@@ -256,6 +309,13 @@ m3 <- leaflet() %>%
     lng=dep_rs$longitud, lat=dep_rs$latitud,
     popup=paste(dep_rs$placename)) # include a popup with the placename!
 m3 #looks OK!
+
+m4 <- leaflet() %>%             
+  addTiles() %>%         
+  addCircleMarkers(      
+    lng=dep_ms$longitud, lat=dep_ms$latitud,
+    popup=paste(dep_ms$placename)) # include a popup with the placename!
+m4 #looks OK!
 
 # if had typo in a coordinate, could use this (example)
 #dep$longitude[dep$placename=="ALG069"] <- -112.5075
@@ -329,6 +389,14 @@ setdiff(names(img_rs), names(img_combined)) #check
 
 img_combined <- rbind.data.frame(img_combined, img_rs)
 
+# update: now need to add mega survey
+names(img_combined)
+names(img_ms)
+img_ms <- img_ms[,c(1:27)] #remove unwanted columns from join, correct duplicate colnames
+colnames(img_ms)[1:2] <- c('project_id', 'deployment_id')
+setdiff(names(img_ms), names(img_combined)) #check
+img_combined <- rbind.data.frame(img_combined, img_ms)
+
 # Also need to standardize deployments
 names(dep_combined)
 names(dep_rs)
@@ -375,9 +443,26 @@ dep_combined <- dep_combined[!is.na(dep_combined$longitude),] #just in case any 
 sum(is.na(dep_combined$end_date))
 dep_combined <- dep_combined[!is.na(dep_combined$end_date),]
 
+# update: add mega survey
+dep_ms <- left_join(dep_ms, ms_startenddates, by='placename')
+dep_ms$start_date <- as.Date(dep_ms$start_date)
+dep_ms$end_date <- as.Date(dep_ms$end_date)
+
+dep_ms <- dep_ms %>%
+  mutate(start_date = coalesce(start_date, camstart),
+         end_date = coalesce(end_date, camend)) #works
+sum(is.na(dep_ms$start_date)) #should be zero if everything matched
+sum(is.na(dep_ms$end_date))
+dep_ms <- dep_ms[,c(1:28)]
+dep_ms$days <- interval(dep_ms$start_date, dep_ms$end_date)/ddays(1)
+hist(dep_ms$days, main='Mega survey', xlab='Days')
+setdiff(names(dep_ms), names(dep_combined)) #check
+
+dep_combined <- rbind.data.frame(dep_combined, dep_ms)
+
 # Chris 'ultimate' leaflet map:
 # First, set a single categorical variable of interest from station covariates for summary graphs. If you do not have an appropriate category use "project_id".
-category <- "feature_type"
+category <- "project_id"
 
 # We first convert this category to a factor with discrete levels
 dep_combined[,category] <- factor(dep_combined[,category])
@@ -457,6 +542,7 @@ table(unique(dep_combined$placename)  %in% unique(img_combined$placename))
 # after left_joining placenames from deployments into images table
 # maybe this is OK or expected: does it mean some deployed cameras have no images?
 #missing_placenames <- dplyr::anti_join(deployments, images, by='placename')
+# so far, we actually do have one camera (deploymentID: G_17a) with no images
 missing_placenames <- dplyr::anti_join(dep_combined, img_combined, by='placename')
 
 ## 5.4.2 Camera activity checks
@@ -600,13 +686,17 @@ for(i in 1:max(dep_tmp$plot_group))
 
 ## Remove images captured outside deployment window (likely a malfunction or error)
 #visually identified using plot_ly output above
-quarantine <- subset(img_combined, deployment_id %in% c('G69_b','G119_a','G19_a','G50_a','G48_a','Rf8_M130_4122022','Rf7_M064_4122022','Rf4_M055_2122022'))
-quarantine <- left_join(quarantine[,c('deployment_id','timestamp','image_id')], dep_combined[,c('deployment_id','start_date','end_date')], by='deployment_id')
+# originally I had been removing suspect images based on image_id
+# but some of the new images don't have image_id! Argh!
+# so need to create a new rowID
+img_combined$rowID <- seq(1,nrow(img_combined),1)
+quarantine <- subset(img_combined, deployment_id %in% c('G69_b','G119_a','G19_a','G50_a','G48_a','Rf8_M130_4122022','Rf7_M064_4122022','Rf4_M055_2122022','MS#182'))
+quarantine <- left_join(quarantine[,c('deployment_id','timestamp','rowID')], dep_combined[,c('deployment_id','start_date','end_date')], by='deployment_id')
 quarantine$capture_date <- as.Date(quarantine$timestamp)
 quarantine$keep <- ifelse(quarantine$capture_date <= quarantine$end_date & quarantine$capture_date >= quarantine$start_date, 'Yes','No')
 table(quarantine$keep)
 quarantine_remove <- subset(quarantine, keep=='No')
-img_combined <- subset(img_combined, !(image_id %in% quarantine_remove$image_id))
+img_combined <- subset(img_combined, !(rowID %in% quarantine_remove$rowID))
 
 ## 5.4.4 Taxonomy check
 # First define vector of the headings you want to see (we will use this trick a lot later on)
@@ -687,12 +777,13 @@ img_combined$common_name <- ifelse(img_combined$common_name=='peccary_collared',
 img_combined$common_name <- ifelse(img_combined$common_name=='ocelot','Ocelot', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='puma','Puma', img_combined$common_name)
 
+img_combined$common_name <- ifelse(img_combined$common_name=='porcupine','Mexican Hairy Dwarf Porcupine', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='paca','Spotted Paca', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='tayra','Tayra', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='jaguarundi','Jaguarundi', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='coyote','Coyote', img_combined$common_name)
-img_combined$common_name <- ifelse(img_combined$common_name=='tamandua','Northern Tamandua', img_combined$common_name)
-img_combined$common_name <- ifelse(img_combined$common_name=='agouti','Central American Agouti', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name %in% c('tamandua','Southern Tamandua'),'Northern Tamandua', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name %in% c('agouti','agouti '),'Central American Agouti', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='curassow_great','Great Curassow', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='coati','White-nosed Coati', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='opossum_common','Common Opossum', img_combined$common_name)
@@ -701,8 +792,8 @@ img_combined$common_name <- ifelse(img_combined$common_name=='margay','Margay', 
 img_combined$common_name <- ifelse(img_combined$common_name=='armadillo_ninebanded','Nine-banded Armadillo', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='peccary_whitelipped','White-lipped Peccary', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='otter','Neotropical Otter', img_combined$common_name)
-img_combined$common_name <- ifelse(img_combined$common_name %in%c('squirrel_monkey','monkey_squirrel'),'Black-crowned Central American Squirrel Monkey', img_combined$common_name)
-img_combined$common_name <- ifelse(img_combined$common_name=='skunk_striped','Striped Hog-nosed Skunk', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name %in% c('squirrel_monkey','monkey_squirrel'),'Black-crowned Central American Squirrel Monkey', img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name %in% c('skunk_striped','skunk_striped_hog-nosed'),'Striped Hog-nosed Skunk', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='deer_red_brocket','Central American Red Brocket', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name %in% c('Colombian White-throated Capuchin\n','White-faced_capuchin','capuchin_whitefaced'),'White-faced Capuchin', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='opossum_foureyed','Dark Four-eyed Opossum', img_combined$common_name)
@@ -710,7 +801,7 @@ img_combined$common_name <- ifelse(img_combined$common_name=='jaguar','Jaguar', 
 img_combined$common_name <- ifelse(img_combined$common_name=='kinkajou','Kinkajou', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='opossum_water','Water Opossum', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='monkey_spider',"Geoffroy's Spider Monkey", img_combined$common_name)
-img_combined$common_name <- ifelse(img_combined$common_name=='tapir',"Baird's Tapir", img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name %in% c('tapir','tapir_bairds'),"Baird's Tapir", img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='rat_spiny',"Tome's Spiny Rat", img_combined$common_name)
 #img_combined$common_name <- ifelse(img_combined$common_name=='capuchin_whitefaced',"White-faced capuchin", img_combined$common_name)
 
@@ -771,6 +862,7 @@ img_combined$order <- ifelse(img_combined$common_name=='White-lipped Peccary','A
 # seems Cebus capucinus does not occur in our study area
 # therefore, records of that species are likely Cebus imitator (ironic)
 img_combined$species <- ifelse(img_combined$species=='capucinus', 'imitator', img_combined$species)
+img_combined$common_name <- ifelse(img_combined$common_name=='Panamanian White-faced Capuchin', 'White-faced Capuchin', img_combined$common_name)
 
 # 6.5.1: Filter to target species:
 # Remove observations without animals detected, where we don't know the species, and non-mammals
@@ -912,13 +1004,13 @@ length(unique(ind_dat$sp))
 
 ## 6.6 Creating analysis dataframes
 #A data frame of “independent detections” at the 30 minute threshold you specified at the start:
-#write.csv(ind_dat, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_detections.csv"), row.names = F)
+#write.csv(ind_dat, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_detections.csv"), row.names = F)
 
 # also write the cleaned all detections file (some activity analyses require it)
-#write.csv(images_tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_raw_detections.csv"), row.names = F)
+#write.csv(images_tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_raw_detections.csv"), row.names = F)
 
 # The “daily_lookup”
-#write.csv(row_lookup, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_daily_lookup.csv"), row.names = F)
+#write.csv(row_lookup, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_daily_lookup.csv"), row.names = F)
 
 # Unique camera locations list
 #Subset the columns
@@ -926,7 +1018,7 @@ tmp <- dep_combined[, c("project_id", "placename", "longitude", "latitude", "fea
 # Remove duplicated rows
 tmp <- tmp[duplicated(tmp)==F,]
 # write the file
-#write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_camera_locations.csv"), row.names = F)
+#write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_camera_locations.csv"), row.names = F)
 
 # final species list
 #tmp <- sp_list[sp_list$common_name %in% ind_dat$common_name,]
@@ -940,7 +1032,7 @@ tmp <- distinct(tmp)
 # library(stringr)
 # tmp$sp <- str_replace(tmp$sp, " ", ".")
 
-#write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_species_list.csv"), row.names = F)
+#write.csv(tmp, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_species_list.csv"), row.names = F)
 
 ##
 # A ‘site x species’ matrix of the number of independent detections and species counts across the full study period
@@ -975,9 +1067,9 @@ for(i in 1:nrow(total_obs))
 
 
 # Save them
-#write.csv(total_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_total_observations.csv"), row.names = F) 
+#write.csv(total_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_total_observations.csv"), row.names = F) 
 
-#write.csv(total_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_total_counts.csv"), row.names = F) 
+#write.csv(total_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_total_counts.csv"), row.names = F) 
 
 ## A ‘site_month x species’ matrix of the number of independent detections and species counts across for each month in the study period:
 # Monthly counts
@@ -1007,8 +1099,8 @@ for(i in 1:nrow(mon_obs))
   
 }
 
-#write.csv(mon_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_monthly_observations.csv"), row.names = F) 
-#write.csv(mon_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_monthly_counts.csv"), row.names = F) 
+#write.csv(mon_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_monthly_observations.csv"), row.names = F) 
+#write.csv(mon_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_monthly_counts.csv"), row.names = F) 
 
 ## A ‘site_week x species’ matrix of the number of independent detections and species counts across for each week in the study period
 # Weekly format
@@ -1044,8 +1136,8 @@ for(i in 1:nrow(week_obs))
   
 }
 
-#write.csv(week_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_weekly_observations.csv"), row.names = F) 
-#write.csv(week_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_weekly_counts.csv"), row.names = F) 
+#write.csv(week_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_weekly_observations.csv"), row.names = F) 
+#write.csv(week_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_weekly_counts.csv"), row.names = F) 
 
 ## A ‘site_day x species’ matrix of the number of independent detections and species counts across for each day a station was active in the study period:
 # Daily format
@@ -1069,8 +1161,8 @@ for(i in 1:nrow(day_obs))
   
   
 }
-#write.csv(day_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_daily_observations.csv"), row.names = F) 
-#write.csv(day_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/",ind_dat$project_id[1], "_",independent ,"min_independent_daily_counts.csv"), row.names = F) 
+#write.csv(day_obs, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_daily_observations.csv"), row.names = F) 
+#write.csv(day_count, paste0("Data/spatial/CameraTraps/wildlife-insights/processed_data/","combined_projects", "_",independent ,"min_independent_daily_counts.csv"), row.names = F) 
 
 # 6.6.1: final data check
 # observations

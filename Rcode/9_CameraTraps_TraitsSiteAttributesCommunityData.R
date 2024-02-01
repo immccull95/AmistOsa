@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 1-23-24: some new visuals of basic detection data
+# updated: 1-31-24: add natl park predictors, add mega survey cameras
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -33,14 +33,14 @@ AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa_31971.shp")
 
 # Preliminary camera trap datasets (processed in 8_CameraTrapsDataChecks.R)
 # have prefix OSAGRID but actually combined OSAGRID, 2003884 and road survey projects
-species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_species_list.csv")
+species <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_species_list.csv")
 projects <- read.csv("Data/spatial/CameraTraps/wildlife-insights/projects.csv")
-total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_total_observations.csv", header=T)
-mon_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_monthly_observations.csv", header=T)
-week_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_30min_independent_weekly_observations.csv")
+total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_30min_independent_total_observations.csv", header=T)
+mon_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_30min_independent_monthly_observations.csv", header=T)
+week_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_30min_independent_weekly_observations.csv")
 
 # camera locations: (combined OSAGRID, WI and road survey)
-cameras <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/OSAGRID_camera_locations.csv")
+cameras <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_camera_locations.csv")
 
 # DEM
 DEM <- terra::rast("Data/spatial/SRTM/SRTM_30m_31971_AmistOsa.tif")
@@ -133,7 +133,7 @@ sp_summary[sp_summary$sp=="Cebus.imitator", c("mass_g", "act_noct","act_crep","a
 
 # great curassow is not a mammal, so fill in its body mass
 # https://eol.org/pages/45508958/articles 
-sp_summary[1,8] <- 3950 #grams
+sp_summary[3,8] <- 3950 #grams
 
 ## Camera trap location map
 crdref <- "EPSG:4326" #I think this is the right one
@@ -151,7 +151,7 @@ cameras_pts <- terra::project(cameras_pts, "EPSG:31971")
 cameras_pts$placename <- cameras$placename
 cameras_pts <- terra::merge(cameras_pts, cameras, by='placename')
 
-#terra::writeVector(cameras_pts, filename='Data/spatial/CameraTraps/AmistOsa_cameras_combined.shp')
+#terra::writeVector(cameras_pts, filename='Data/spatial/CameraTraps/AmistOsa_cameras_combined.shp', overwrite=T)
 
 terra::plot(AmistOsa)
 terra::plot(cameras_pts, add=T, col='red')
@@ -365,6 +365,10 @@ par(mfrow=c(1,2))
 boxplot(Richness ~ Protected, happy_data, las=1)
 boxplot(total_detections ~ Protected, happy_data, las=1)
 
+boxplot(Richness ~ natlpark, happy_data, las=1)
+boxplot(total_detections ~ natlpark, happy_data, las=1)
+
+
 # species_names <- colnames(happy_data[,c(3:31)])
 # for (i in 1:length(species_names)) {
 #   sub <- subset(happy_data, species_names[i]==1)
@@ -381,7 +385,7 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 tapir_pts <- subset(cameras_pts, cameras_pts$placename %in% tapir$placename)
 terra::plot(tapir_pts, add=T, col='gold')
-#writeVector(tapir_pts, filename='Data/spatial/CameraTraps/species_points/tapir_detections.shp')
+#writeVector(tapir_pts, filename='Data/spatial/CameraTraps/species_points/tapir_detections.shp', overwrite=T)
 
 jaguar <- subset(happy_data, Panthera.onca==1)
 terra::plot(AmistOsa, main='Jaguar')
@@ -389,7 +393,7 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 jaguar_pts <- subset(cameras_pts, cameras_pts$placename %in% jaguar$placename)
 terra::plot(jaguar_pts, add=T, col='gold')
-#writeVector(jaguar_pts, filename='Data/spatial/CameraTraps/species_points/jaguar_detections.shp')
+#writeVector(jaguar_pts, filename='Data/spatial/CameraTraps/species_points/jaguar_detections.shp', overwrite=T)
 
 whitelipped <- subset(happy_data, Tayassu.pecari==1)
 terra::plot(AmistOsa, main='White-lipped peccary')
@@ -397,7 +401,7 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 whitelipped_pts <- subset(cameras_pts, cameras_pts$placename %in% whitelipped$placename)
 terra::plot(whitelipped_pts, add=T, col='gold')
-#writeVector(whitelipped_pts, filename='Data/spatial/CameraTraps/species_points/whitelipped_detections.shp')
+#writeVector(whitelipped_pts, filename='Data/spatial/CameraTraps/species_points/whitelipped_detections.shp', overwrite=T)
 
 collared <- subset(happy_data, Pecari.tajacu==1)
 terra::plot(AmistOsa, main='Collared peccary')
@@ -405,7 +409,7 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 collared_pts <- subset(cameras_pts, cameras_pts$placename %in% collared$placename)
 terra::plot(collared_pts, add=T, col='gold')
-#writeVector(collared_pts, filename='Data/spatial/CameraTraps/species_points/collared_detections.shp')
+#writeVector(collared_pts, filename='Data/spatial/CameraTraps/species_points/collared_detections.shp', overwrite=T)
 
 puma <- subset(happy_data, Puma.concolor==1)
 terra::plot(AmistOsa, main='Puma')
@@ -414,7 +418,7 @@ terra::plot(cameras_pts, add=T, col='black')
 puma_pts <- subset(cameras_pts, cameras_pts$placename %in% puma$placename)
 terra::plot(puma_pts, add=T, col='gold')
 #legend('topright', legend=c('Yes','No'), pch=c(20,20), col=c('gold','black'))
-#writeVector(puma_pts, filename='Data/spatial/CameraTraps/species_points/puma_detections.shp')
+#writeVector(puma_pts, filename='Data/spatial/CameraTraps/species_points/puma_detections.shp', overwrite=T)
 
 curassow <- subset(happy_data, Crax.rubra==1)
 terra::plot(AmistOsa, main='Great curassow')
@@ -422,7 +426,7 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 curassow_pts <- subset(cameras_pts, cameras_pts$placename %in% curassow$placename)
 terra::plot(curassow_pts, add=T, col='gold')
-#writeVector(curassow_pts, filename='Data/spatial/CameraTraps/species_points/curassow_detections.shp')
+#writeVector(curassow_pts, filename='Data/spatial/CameraTraps/species_points/curassow_detections.shp', overwrite=T)
 
 paca <- subset(happy_data, Cuniculus.paca==1)
 terra::plot(AmistOsa, main='Paca')
@@ -430,25 +434,25 @@ terra::plot(protected_areas_dissolved, add=T, col='gray80')
 terra::plot(cameras_pts, add=T, col='black')
 paca_pts <- subset(cameras_pts, cameras_pts$placename %in% paca$placename)
 terra::plot(paca_pts, add=T, col='gold')
-#writeVector(paca_pts, filename='Data/spatial/CameraTraps/species_points/paca_detections.shp')
+#writeVector(paca_pts, filename='Data/spatial/CameraTraps/species_points/paca_detections.shp', overwrite=T)
 
 # ocelot <- subset(happy_data, Leopardus.pardalis==1)
 # terra::plot(AmistOsa, main='Ocelot')
 # terra::plot(protected_areas_dissolved, add=T, col='gray80')
 # terra::plot(cameras_pts, add=T, col='black')
-# terra::plot(subset(cameras_pts, cameras_pts$placename %in% ocelot$placename), add=T, col='gold')
+# terra::plot(subset(cameras_pts, cameras_pts$placename %in% ocelot$placename), add=T, col='gold', overwrite=T)
 # 
 # margay <- subset(happy_data, Leopardus.wiedii==1)
 # terra::plot(AmistOsa, main='Margay')
 # terra::plot(protected_areas_dissolved, add=T, col='gray80')
 # terra::plot(cameras_pts, add=T, col='black')
-# terra::plot(subset(cameras_pts, cameras_pts$placename %in% margay$placename), add=T, col='gold')
+# terra::plot(subset(cameras_pts, cameras_pts$placename %in% margay$placename), add=T, col='gold', overwrite=T)
 # 
 # jaguarundi <- subset(happy_data, Herpailurus.yagouaroundi==1)
 # terra::plot(AmistOsa, main='Jaguarundi')
 # terra::plot(protected_areas_dissolved, add=T, col='gray80')
 # terra::plot(cameras_pts, add=T, col='black')
-# terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguarundi$placename), add=T, col='gold')
+# terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguarundi$placename), add=T, col='gold', overwrite=T)
 
 #### How about some basic information on detections ####
 # inside vs. outside of protected areas
@@ -464,7 +468,9 @@ detection_df <- data.frame(species=c('Tapir','Jaguar','WLP','Puma','Collared','C
                            detections_LCP_pct=NA,
                            detections_LCP_protected=NA,
                            detections_LCP_protected_pct=NA,
-                           detections_totalcams=NA)
+                           detections_totalcams=NA,
+                           detections_NP=NA,
+                           detections_NP_pct=NA)
 detection_df[1,10] <- nrow(tapir)
 detection_df[2,10] <- nrow(jaguar)
 detection_df[3,10] <- nrow(whitelipped)
@@ -512,7 +518,6 @@ paca_protected <- terra::intersect(paca_pts, protected_areas_dissolved)
 nrow(paca_protected)/nrow(paca) #% of cameras detecting target sp in protected areas
 detection_df[7,2] <- nrow(paca_protected)
 detection_df[7,3] <- nrow(paca_protected)/nrow(paca)
-
 
 ## the SINAC biological corridors:
 # cameras in SINAC bcs
@@ -652,18 +657,48 @@ detection_df$detections_other_unprotected <- detection_df$detections_unprotected
 detection_df$detections_other_unprotected <- ifelse(detection_df$detections_other_unprotected < 0, 0, detection_df$detections_other_unprotected) #if a detection is in both SINAC and LCP unprotected areas, can be double counted
 detection_df$detections_other_unprotected_pct <- detection_df$detections_other_unprotected/detection_df$detections_totalcams
 
+jaguar_natlpark <- terra::intersect(jaguar_pts, natlparks_dissolved)
+nrow(jaguar_natlpark)/nrow(jaguar) #% of cameras detecting target sp in natlpark areas
+detection_df[2,11] <- nrow(jaguar_natlpark)
+detection_df[2,12] <- nrow(jaguar_natlpark)/nrow(jaguar)
+
+whitelipped_natlpark <- terra::intersect(whitelipped_pts, natlparks_dissolved)
+nrow(whitelipped_natlpark)/nrow(whitelipped) #% of cameras detecting target sp in natlpark areas
+detection_df[3,11] <- nrow(whitelipped_natlpark)
+detection_df[3,12] <- nrow(whitelipped_natlpark)/nrow(whitelipped)
+
+puma_natlpark <- terra::intersect(puma_pts, natlparks_dissolved)
+nrow(puma_natlpark)/nrow(puma) #% of cameras detecting target sp in natlpark areas
+detection_df[4,11] <- nrow(puma_natlpark)
+detection_df[4,12] <- nrow(puma_natlpark)/nrow(puma)
+
+collared_natlpark <- terra::intersect(collared_pts, natlparks_dissolved)
+nrow(collared_natlpark)/nrow(collared) #% of cameras detecting target sp in natlpark areas
+detection_df[5,11] <- nrow(collared_natlpark)
+detection_df[5,12] <- nrow(collared_natlpark)/nrow(collared)
+
+curassow_natlpark <- terra::intersect(curassow_pts, natlparks_dissolved)
+nrow(curassow_natlpark)/nrow(curassow) #% of cameras detecting target sp in natlpark areas
+detection_df[6,11] <- nrow(curassow_natlpark)
+detection_df[6,12] <- nrow(curassow_natlpark)/nrow(curassow)
+
+paca_natlpark <- terra::intersect(paca_pts, natlparks_dissolved)
+nrow(paca_natlpark)/nrow(paca) #% of cameras detecting target sp in natlpark areas
+detection_df[7,11] <- nrow(paca_natlpark)
+detection_df[7,12] <- nrow(paca_natlpark)/nrow(paca)
+
 # since we have 2 collared peccary detections that are both SINAC BC and LCP unprotected, 
 # allocate one to each category so not to overinflate total
 detection_df[5,4] <- detection_df[5,4]-1
-detection_df[5,13] <- detection_df[5,13]-1
+detection_df[5,15] <- detection_df[5,15]-1
 detection_df[5,5] <- detection_df[5,4]/detection_df[5,10]
-detection_df[5,14] <-detection_df[5,13]/detection_df[5,10]
+detection_df[5,16] <-detection_df[5,16]/detection_df[5,10]
 
 #write.csv(detection_df, file='Data/spatial/CameraTraps/detection_summary.csv', row.names=F)
 
 ## Try out some visuals
 # with total number of detections
-detection_only_df <- detection_df[,c(1,2,4,13,15)]
+detection_only_df <- detection_df[,c(1,2,4,15,17)]
 detection_only_df <- reshape2::melt(detection_only_df, id='species')
 names(detection_only_df) <- c('species','variable','detections')
 detection_only_df$species <- factor(detection_only_df$species, levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'))
@@ -683,7 +718,7 @@ abs_plot <- ggplot(detection_only_df, aes(fill=variable, y=detections, x=species
 abs_plot
 
 # with proportion of detections
-detection_only_pct_df <- detection_df[,c(1,3,5,14,16)]
+detection_only_pct_df <- detection_df[,c(1,3,5,16,18)]
 detection_only_pct_df <- reshape2::melt(detection_only_pct_df, id='species')
 names(detection_only_pct_df) <- c('species','variable','proportion')
 detection_only_pct_df$species <- factor(detection_only_pct_df$species, levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'))
@@ -700,11 +735,10 @@ prop_plot <- ggplot(detection_only_pct_df, aes(fill=variable, y=proportion, x=sp
   scale_fill_manual(name='',values=c('forestgreen','gold','gray','lightblue'),labels=c('Protected area','SINAC BC','LCP unprotected','Other unprotected'))
 prop_plot
 
+# watch out for double counting
 # jpeg(filename='Figures/AmistOsa_detection_barplots.jpeg', height=5, width=7, units='in', res=300)
 #   grid.arrange(abs_plot, prop_plot, nrow=1)
 # dev.off()
-
-
 
 ## What about detections in relation to current or conductance?
 par(mfrow=c(1,1))
@@ -1415,13 +1449,35 @@ protected_cameras <- terra::intersect(cameras_pts, protected_areas)
 protected_cameras_df <- as.data.frame(protected_cameras)
 protected_cameras_df$Protected <- 'Yes'
 protected_cameras_df <- protected_cameras_df[,c('placename','Protected')]
+protected_cameras_df <- dplyr::distinct(protected_cameras_df)# I guess some buffers may overlap with a PA border, so were duplicated. Overlap is good enough for our purposes
+
+# Located in national park?
+natlparks <- subset(protected_areas, protected_areas$NAME %in% c('Piedras Blancas','Corcovado','La Amistad',
+                                                                 'Internacional La Amistad','Talamanca Range-La Amistad Reserves / La Amistad National Park'))
+natlparks_dissolved <- terra::aggregate(natlparks)
+plot(AmistOsa)
+#plot(natlparks, add=T, col='blue')
+plot(natlparks_dissolved, add=T, col='blue')
+
+natlpark_cameras <- terra::intersect(cameras_pts, natlparks_dissolved)
+natlpark_cameras_df <- as.data.frame(natlpark_cameras)
+natlpark_cameras_df$natlpark <- 'Yes'
+natlpark_cameras_df <- natlpark_cameras_df[,c('placename','natlpark')]
+natlpark_cameras_df <- dplyr::distinct(natlpark_cameras_df) #just in case
 
 # Protected area distance
 # unlike with core forest patches above, made no difference to use protected areas or dissolved protected areas
+# but I guess if used dissolved, wouldn't get so many distance columns
 pa_camera_distance <- terra::distance(cameras_pts, protected_areas, unit='m')
 pa_camera_distance_df <- as.data.frame(pa_camera_distance)
 pa_camera_distance_df$min <- apply(pa_camera_distance_df, 1, FUN = min)
 summary(pa_camera_distance_df$min)
+
+# Natl park distance
+natlpark_camera_distance <- terra::distance(cameras_pts, natlparks_dissolved, unit='m')
+natlpark_camera_distance_df <- as.data.frame(natlpark_camera_distance)
+natlpark_camera_distance_df$min <- apply(natlpark_camera_distance_df, 1, FUN = min)
+summary(natlpark_camera_distance_df$min)
 
 ## percent protected
 cameras_pts_buff_pct_protected <- terra::intersect(cameras_pts_buff, protected_areas_dissolved)
@@ -1434,6 +1490,18 @@ cameras_pts_buff_pct_protected_df$buffer_areasqm <- terra::expanse(cameras_pts_b
 cameras_pts_buff_pct_protected_df$pct_protected <- cameras_pts_buff_pct_protected_df$pa_areasqm/cameras_pts_buff_pct_protected_df$buffer_areasqm
 cameras_pts_buff_pct_protected_df$pct_protected <- ifelse(cameras_pts_buff_pct_protected_df$pct_protected > 1, 1, cameras_pts_buff_pct_protected_df$pct_protected)
 summary(cameras_pts_buff_pct_protected_df$pct_protected)
+
+## percent natlpark
+cameras_pts_buff_pct_natlpark <- terra::intersect(cameras_pts_buff, natlparks_dissolved)
+cameras_pts_buff_pct_natlpark_df <- as.data.frame(cameras_pts_buff_pct_natlpark)
+cameras_pts_buff_pct_natlpark_df$np_areasqm <- terra::expanse(cameras_pts_buff_pct_natlpark, unit='m')
+
+cameras_pts_buff_pct_natlpark_df <- merge(cameras_pts_buff_pct_natlpark_df, cameras[,c(1:2)], by='placename', all=T)
+
+cameras_pts_buff_pct_natlpark_df$buffer_areasqm <- terra::expanse(cameras_pts_buff, unit='m')
+cameras_pts_buff_pct_natlpark_df$pct_natlpark <- cameras_pts_buff_pct_natlpark_df$np_areasqm/cameras_pts_buff_pct_natlpark_df$buffer_areasqm
+cameras_pts_buff_pct_natlpark_df$pct_natlpark <- ifelse(cameras_pts_buff_pct_natlpark_df$pct_natlpark > 1, 1, cameras_pts_buff_pct_natlpark_df$pct_natlpark)
+summary(cameras_pts_buff_pct_natlpark_df$pct_natlpark)
 
 ## Roads
 # Note: since buffers are small, currently most have 0 roads and some 1, 
@@ -1457,16 +1525,25 @@ cameras_merger_list <- list(cameras, cameras_canopy, cameras_elevation, cameras_
                             cameras_pts_buff_forest_patches_summary[,c(2,5)], 
                             cameras_pts_buff_current_flow, cameras_pts_buff_conductance, cameras_pts_buff_roads_summary[,c(2,4)],
                             pa_camera_distance_df[,c(22)],
-                            cameras_pts_buff_pct_protected_df[,c(9)])
+                            cameras_pts_buff_pct_protected_df[,c(9)],
+                            natlpark_camera_distance_df[,c(2)],
+                            cameras_pts_buff_pct_natlpark_df[,c(9)])
 cameras_merger <- do.call(cbind.data.frame, cameras_merger_list)
 #cameras_merger <- cameras_merger %>% select(-matches('ID'))
 cameras_merger <- merge(cameras_merger, protected_cameras_df, by='placename', all=T)
-cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,23,25,27:32)] #get rid of replicated ID columns
+cameras_merger <- merge(cameras_merger, natlpark_cameras_df, by='placename', all=T)
+
+cameras_merger <- cameras_merger[,c(1:5,7,9,12,13,14,17,20,21,22,23,25,27:35)] #get rid of replicated ID columns
 colnames(cameras_merger)[20] <- "protected_area_dist_m"
 colnames(cameras_merger)[21] <- "pct_protected"
-# replace NA in protected with "No" to indicate not protected
+colnames(cameras_merger)[22] <- "natlpark_dist_m"
+colnames(cameras_merger)[23] <- "pct_natlpark"
+
+# replace NA in protected and natl park with "No" to indicate not protected
 cameras_merger[c("Protected")][is.na(cameras_merger[c("Protected")])] <- 'No'
 table(cameras_merger$Protected)
+cameras_merger[c("natlpark")][is.na(cameras_merger[c("natlpark")])] <- 'No'
+table(cameras_merger$natlpark)
 
 # in case any NAs still need to be converted to true 0s
 cameras_merger[is.na(cameras_merger)] <- 0
@@ -1481,7 +1558,8 @@ cameras_merger$pct_forest_edge <- cameras_merger$pct_forest - cameras_merger$pct
 ## Correlations among potential predictors
 candidate_predictors <- cameras_merger[,c('elevation_m','pct_ag','pct_forest_core','pct_forest_edge',
                           'pct_protected','protected_area_dist_m','canopy_height_m',
-                          'meanForestPatchArea','nForestPatches','forest_core_dist_m')]
+                          'meanForestPatchArea','nForestPatches','forest_core_dist_m',
+                          'natlpark_dist_m', 'pct_natlpark')]
 M <- cor(candidate_predictors, method='spearman', use='pairwise.complete.obs')
 
 par(mfrow=c(1,1))
@@ -1531,9 +1609,11 @@ hist(cameras_merger$meanAgPatchArea, main='Ag patch area', xlab='sq km')
 hist(cameras_merger$pct_protected, main='Protection %', xlab='prop')
 #mtext(side=3, '100 m buffers around camera locations')
 
+hist(cameras_merger$pct_natlpark, main='NP Protection %', xlab='prop')
+
 hist(cameras_merger$protected_area_dist_m, main='PA distance', xlab='m')
 
-
+hist(cameras_merger$natlpark_dist_m, main='NP distance', xlab='m')
 
 
 hist(cameras_merger$nTotalRoads, main='Total roads', xlab='Roads')
@@ -1554,10 +1634,10 @@ hist(cameras_merger$mean_conductance, main='Mean conductance',
 cameras_500m <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv")
 cameras_100m <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_100mbuff.csv")
 
-cameras_500m_cp <- cameras_500m[,c(6:21,23)]
+cameras_500m_cp <- cameras_500m[,c(6:23,26)]
 colnames(cameras_500m_cp) <- paste0(colnames(cameras_500m_cp), '_500m')
 
-cameras_100m_cp <- cameras_100m[,c(6:21,23)]
+cameras_100m_cp <- cameras_100m[,c(6:23,26)]
 colnames(cameras_100m_cp) <- paste0(colnames(cameras_100m_cp), '_100m')
 
 cameras_cp <- cbind.data.frame(cameras_500m_cp, cameras_100m_cp)
@@ -1575,7 +1655,7 @@ cor(cameras_cp$pct_protected_500m, cameras_cp$pct_protected_100m, method='spearm
 cor(cameras_cp$pct_forest_edge_500m, cameras_cp$pct_forest_edge_100m, method='spearman')
 cor(cameras_cp$nForestPatches_500m, cameras_cp$nForestPatches_100m, method='spearman')
 cor(cameras_cp$nAgPatches_500m, cameras_cp$nAgPatches_100m, method='spearman')
-
+cor(cameras_cp$natlpark_dist_m_500m, cameras_cp$natlpark_dist_m_100m, method='spearman')
 
 M <- cor(cameras_100m[,colnames(candidate_predictors)], method='spearman', use='pairwise.complete.obs')
 
