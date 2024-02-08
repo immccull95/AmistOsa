@@ -220,8 +220,8 @@ m3 <- occu(formula = ~1 # detection formula first
              #z.protected_area_dist_m+ 
              z.natlpark_dist_m+
              #z.pct_forest_edge+ #highly correlated with pct_forest_core
-             #z.meanForestPatchArea,
-             z.canopy_height_m, #highly correlated with pct forest core, # occupancy formula second,
+             z.meanForestPatchArea,#+
+            #z.canopy_height_m, #highly correlated with pct forest core, # occupancy formula second,
            #method=optim(par=c(-5,5), maxit=10000), #don't know what to set for initial conditions (par) and function (fn)
            data = un_dat)
 summary(m3)
@@ -231,7 +231,8 @@ backTransform(m3, type='det')
 ## Trying random intercept model per lme4
 m4 <- occu(formula = ~1 ~ 
              z.natlpark_dist_m + 
-             z.canopy_height_m + 
+             #z.canopy_height_m + 
+             z.meanForestPatchArea+
              (1|natlpark),
            data=un_dat)
 summary(m4)
@@ -240,9 +241,11 @@ randomTerms(m4, level=0.95) #seems that the intercepts are similar and both clos
 ## Trying random intercept and slope per lme4
 m5 <- occu(formula = ~1 ~ 
              z.natlpark_dist_m + 
-             z.canopy_height_m + 
+             #z.canopy_height_m + 
+             z.meanForestPatchArea +
              (1 + z.natlpark_dist_m || natlpark) +
-             (1 + z.canopy_height_m || natlpark),
+             #(1 + z.canopy_height_m || natlpark) +
+             (1 + z.meanForestPatchArea || natlpark),
            data=un_dat)
 summary(m5)
 randomTerms(m5, level=0.95)
@@ -592,7 +595,7 @@ plot(AmistOsa, add=T)
 hist(prediction_rasterm3)
 
 prediction_rasterm3_mask <- terra::mask(prediction_rasterm3, AmistOsa, inverse=F)
-plot(prediction_rasterm3_mask, main=focal_sp)
+plot(prediction_rasterm3_mask, main=focal_sp, range=c(0,0.9))
 plot(AmistOsa, add=T)
 
 crossVal(m3, method='Kfold', folds=10)
@@ -604,10 +607,11 @@ pred_datm4 <- cbind.data.frame(forest_core_grid_rast_std,
                                protected_area_distance_rast_std, 
                                forest_core_distance_rast_std,
                                natlpark_distance_rast_std,
+                               forest_patcharea_grid_rast_std,
                                protected_binary_rast,
                                natlpark_binary_rast) #had to get rid of NAs for this to work
 names(pred_datm4) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m',
+                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.meanForestPatchArea',
                        'Protected','natlpark')
 pred_datm4$Protected <- ifelse(pred_datm4$Protected==1, 'Yes','No')
 pred_datm4$Protected <- as.factor(pred_datm4$Protected)
@@ -625,6 +629,10 @@ prediction_rasterm4
 plot(prediction_rasterm4, main=focal_sp, range=c(0,1))
 plot(AmistOsa, add=T)
 
+prediction_rasterm4_mask <- terra::mask(prediction_rasterm4, AmistOsa, inverse=F)
+plot(prediction_rasterm4_mask, main=focal_sp, range=c(0,0.9))
+plot(AmistOsa, add=T)
+
 crossVal(m4, method='Kfold', folds=10)
 
 ## Spatial predictions for random slope and random intercept model (m5)
@@ -634,10 +642,11 @@ pred_datm5 <- cbind.data.frame(forest_core_grid_rast_std,
                                protected_area_distance_rast_std, 
                                forest_core_distance_rast_std,
                                natlpark_distance_rast_std,
+                               forest_patcharea_grid_rast_std,
                                protected_binary_rast,
                                natlpark_binary_rast) #had to get rid of NAs for this to work
 names(pred_datm5) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m',
+                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.meanForestPatchArea',
                        'Protected','natlpark')
 pred_datm5$Protected <- ifelse(pred_datm5$Protected==1, 'Yes','No')
 pred_datm5$Protected <- as.factor(pred_datm5$Protected)
@@ -655,6 +664,10 @@ prediction_rasterm5
 plot(prediction_rasterm5, main=focal_sp, range=c(0,1))
 plot(AmistOsa, add=T)
 hist(prediction_rasterm5)
+
+prediction_rasterm5_mask <- terra::mask(prediction_rasterm5, AmistOsa, inverse=F)
+plot(prediction_rasterm5_mask, main=focal_sp, range=c(0,0.9))
+plot(AmistOsa, add=T)
 
 prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5, natlparks_dissolved, inverse=T)
 prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5, AmistOsa, inverse=F)

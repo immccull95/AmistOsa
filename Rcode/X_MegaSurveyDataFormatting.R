@@ -1,6 +1,6 @@
 ##################### Mega survey camera traps: formatting ########################
 # Date: 1-29-24
-# updated: 1-31-24: export extracted data deployments
+# updated: 2-8-24: add mega survey images from powershell processing
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -25,6 +25,7 @@ lapply(list.of.packages, require, character.only = TRUE)
 
 library(data.table)
 library(stringr)
+library(chron)
 
 #### Input data ####
 setwd("C:/Users/immccull/Documents/AmistOsa")
@@ -34,6 +35,7 @@ corcovado <- read.csv("Data/spatial/CameraTraps/megasurvey/MegaSurvey_Corcovado.
 pila <- read.csv("Data/spatial/CameraTraps/megasurvey/MegaSurvey_PILA.csv")
 piedrasblancas <- read.csv("Data/spatial/CameraTraps/megasurvey/MegaSurvey_PiedrasBlancas.csv")
 lasalturas <- read.csv("Data/spatial/CameraTraps/megasurvey/MegaSurvey_LasAlturas.csv")
+powershell <- read.csv("Data/spatial/CameraTraps/megasurvey/Mega_transect_sorted_data_powershell_cleaner.csv")
 
 # species list from other data; can be used to get common and Latin names when missing
 other_splist <- read.csv("Data/spatial/CameraTraps/wildlife-insights/2003884_raw_species_list.csv")
@@ -367,6 +369,122 @@ pila <- test2
 img_combined <- rbind.data.frame(corcovado, lasalturas, pila)
 #write.csv(img_combined, "Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format.csv", row.names=F)
 
+## Deal with powershell images
+# format date and time
+# always a headache
+powershell <- separate(powershell, LastWriteTime, into = c("Date", "Time"), sep = " (?=[^ ]+$)")
+powershell$Date <- lubridate::dmy(powershell$Date)
+powershell$Time <- chron(times = format(parse_date_time(powershell$Time, c('HMS', 'HM')), "%H:%M:%S"))
+powershell$timestamp <- paste(powershell$Date, powershell$Time, sep=' ')
+powershell$timestamp <- lubridate::ymd_hms(powershell$timestamp)
+
+# get rid of obvious species we don't want
+powershell_sp_remove <- c('guan_crested','nothing','people','set_up','small_bird_uid',
+                          'small_mammal_uid','tinamou_great','uid','cat_uid','dog',
+                          'vulture','bat_uid','lizard_uid','opossum_uid','wood-quail_marbled',
+                          'raccoon_uid','horse','peccary_uid','roadside_hawk','iguana_green',
+                          'wood-rail_gray-necked','tinamou_little','other','Invalid','Opossum',
+                          'Other','People','frog_toad_uid','hunter','cat_domestic','hawk_great_black',
+                          'Bird_uid','Blue Ground-Dove','Chestnut-mandibled Toucan','Common Basilisk',
+                          'Dove_uid','Great Crested Flycatcher','Lizard_uid','Nighthawk?Nightjar',
+                          'Roadside Hawk','Rodent_uid','Ruddy Quail-Dove','Scorpion','Squirrel-uid', 'squirrel_uid',
+                          'Unidentified','Bat_uid','Black and White Owl','Collared Forest-Falcon',
+                          'Gray-Chested Dove','Great Tinamou','Grey-Headed Kite','Grey-Necked Wood Rail',
+                          'Little Tinamou','unidentified','bird_small_uid','mammal_small_uid','chachalaca_gray-headed',
+                          'car','butterfly','buteo sp','cow','ground_bird_uid','raccon_uid','set-up','iguana_black',
+                          'Opossum_four-Eyed','opossum_four-eyed') #not clear which four-eyed species
+
+powershell <- subset(powershell, !(Species %in% powershell_sp_remove))
+unique(powershell$Species)
+
+# deal with taxonomic disparities
+# necessary for joining in other taxonomic data
+powershell$Species <- str_to_title(powershell$Species) #deals with basic capitalization issues
+powershell$Species <- ifelse(powershell$Species %in% c('Grison_greater','Great Grison'), 'Greater Grison', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Tamandua','Tamandua_northern'), 'Northern Tamandua', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Tapir","Tapir_bairds"), "Baird's Tapir", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Nine-Banded Armadillo','Armadillo_ninebanded'), 'Nine-banded Armadillo', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Striped Hog-Nosed Skunk','Skunk_striped_hog-Nose','Skunk_striped_hog-Nosed'), 'Striped Hog-nosed Skunk', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Deer_red_brocket','Central American Red Brocket'), 'Central American Red Brocket', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Collard Peccary','Collared Peccary','Peccary_collared'), 'Collared Peccary', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Curassow_great','Great_curassow','Great Curassow'), 'Great Curassow', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Coati','White-Nosed Coati','Coati_white-Nosed'), 'White-nosed Coati', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Otter_neotropical_river'), 'Neotropical Otter', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Peccary_white-Lipped'), 'White-lipped Peccary', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c('Common Opossum','Opossum_common'), 'Common Opossum', powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Monkey_spider"), "Geoffroy's Spider Monkey", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Monkey_squirrel"), "Black-crowned Central American Squirrel Monkey", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Mouse Opossum"), "Mexican Mouse Opossum", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Red-Tailed Squirrel"), "Red-tailed Squirrel", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Monkey_capuchin"), "Panamanian White-faced Capuchin", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Raccoon_crab-Eating"), "Crab-eating Raccoon", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Raccoon"), "Northern Raccoon", powershell$Species) #most likely
+powershell$Species <- ifelse(powershell$Species %in% c("Agouti"), "Central American Agouti", powershell$Species)
+powershell$Species <- ifelse(powershell$Species %in% c("Jaguar"), "jaguar", powershell$Species) #other sheet has it lowercase for some reason
+powershell$Species <- ifelse(powershell$Species %in% c("Paca"), "Spotted Paca", powershell$Species)
+
+unique(powershell$Species)
+
+# create/fix filename column
+powershell$filename <- paste0(powershell$BaseName, powershell$Extension)
+
+# Rename/get rid of not needed columns and create other columns for WI format
+powershell <- powershell[,c(1,2,7,8)]
+names(powershell) <- c('placename','common_name','timestamp','filename')
+
+powershell$project_id <- "megasurvey"
+powershell$deployment_id <- NA
+powershell$image_id <- NA
+powershell$location <- NA
+powershell$is_blank <- NA
+powershell$identified_by <- NA
+powershell$wi_taxon_id <- NA
+powershell$number_of_objects <- NA
+powershell$age <- NA
+powershell$sex <- NA
+powershell$animal_recognizable <- NA
+powershell$individual_id <- NA
+powershell$individual_animal_notes <- NA
+powershell$behavior <- NA
+powershell$highlighted <- NA
+powershell$markings <- NA
+powershell$cv_confidence <- NA
+powershell$license <- NA
+powershell$hours <- NA
+
+# merge in taxonomic info (e.g., class, order, etc)
+powershell <- left_join(powershell, other_splist, by='common_name')
+powershell <- powershell[,c(WI_columns)]
+
+# other list does not have cacomistle and kinkajou, so do those separately
+missing_sp <- data.frame(matrix(NA, ncol = 6, nrow = 2))
+colnames(missing_sp) <- c('class','order','family','genus','species','common_name')
+
+missing_sp[1,] <- c('Mammalia','Carnivora','Procyonidae','Potos','flavus','Kinkajou')
+missing_sp[2,] <- c('Mammalia','Carnivora','Procyonidae','Bassariscus','sumichrasti','Cacomistle')
+
+# joining creates duplicate columns, so fix those
+powershell <- left_join(powershell, missing_sp, by='common_name')
+powershell$species <- ifelse(is.na(powershell$species.x), powershell$species.y, powershell$species.x)
+powershell$genus <- ifelse(is.na(powershell$genus.x), powershell$genus.y, powershell$genus.x)
+powershell$family <- ifelse(is.na(powershell$family.x), powershell$family.y, powershell$family.x)
+powershell$class <- ifelse(is.na(powershell$class.x), powershell$class.y, powershell$class.x)
+powershell$order <- ifelse(is.na(powershell$order.x), powershell$order.y, powershell$order.x)
+
+powershell <- powershell[,c(WI_columns)]
+
+sum(is.na(powershell$species))
+sum(is.na(powershell$genus))
+sum(is.na(powershell$family))
+sum(is.na(powershell$class))
+sum(is.na(powershell$order))
+sum(is.na(powershell$placename))
+
+# Combine powershell images to others
+setdiff(names(img_combined),names(powershell))
+img_combined2 <- rbind.data.frame(img_combined, powershell)
+#write.csv(img_combined2, "Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format_wPowershell.csv", row.names=F)
+
 ## Create camera dataset in WI format
 cameras_WI_format <- data.frame(project_id='megasurvey',camera_id=cameras$site_ID.in.GPS..Corresponding.database,
                                 camera_name=cameras$site_ID, make=cameras$camera_model, model=NA,
@@ -386,3 +504,12 @@ cameras_WI_format$make[cameras_WI_format$make==""] <- NA
 
 cameras_WI_format_ext <- subset(cameras_WI_format, STATUS %in% c('extracted ', 'extracted'))
 #write.csv(cameras_WI_format_ext[,c(1:7)], "Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format_extracted.csv", row.names=F)
+
+### Get list of suspicious camera trap locations:
+# MS#158, 32, 31, 30, 29, 20, 21, 108
+
+suspicious_deployments <- subset(deployments_WI_format, placename %in% 
+                                   c('MS#158','MS#108','MS#32','MS#31','MS#30','MS#29','MS#21','MS#20'))
+#write.csv(suspicious_deployments[,c(1:28)], "Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format_suspicious.csv", row.names=F)
+
+
