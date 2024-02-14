@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 1-31-24: add natl park predictors, add mega survey cameras
+# updated: 2-13-24: rerun with full camera trap dataset
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -24,6 +24,7 @@ library(vegan) #asked to install permute package
 #remotes::install_github("RS-eco/traitdata", build= F, force=T)
 library(traitdata)
 library(reshape2)
+library(viridis)
 
 #### Input data ###
 setwd("C:/Users/immccull/Documents/AmistOsa")
@@ -152,6 +153,7 @@ cameras_pts$placename <- cameras$placename
 cameras_pts <- terra::merge(cameras_pts, cameras, by='placename')
 
 #terra::writeVector(cameras_pts, filename='Data/spatial/CameraTraps/AmistOsa_cameras_combined.shp', overwrite=T)
+cameras_pts <- terra::vect("Data/spatial/CameraTraps/AmistOsa_cameras_combined_nudged.shp") #manually moved points slightly offshore back onto land
 
 terra::plot(AmistOsa)
 terra::plot(cameras_pts, add=T, col='red')
@@ -436,29 +438,10 @@ paca_pts <- subset(cameras_pts, cameras_pts$placename %in% paca$placename)
 terra::plot(paca_pts, add=T, col='gold')
 #writeVector(paca_pts, filename='Data/spatial/CameraTraps/species_points/paca_detections.shp', overwrite=T)
 
-# ocelot <- subset(happy_data, Leopardus.pardalis==1)
-# terra::plot(AmistOsa, main='Ocelot')
-# terra::plot(protected_areas_dissolved, add=T, col='gray80')
-# terra::plot(cameras_pts, add=T, col='black')
-# terra::plot(subset(cameras_pts, cameras_pts$placename %in% ocelot$placename), add=T, col='gold', overwrite=T)
-# 
-# margay <- subset(happy_data, Leopardus.wiedii==1)
-# terra::plot(AmistOsa, main='Margay')
-# terra::plot(protected_areas_dissolved, add=T, col='gray80')
-# terra::plot(cameras_pts, add=T, col='black')
-# terra::plot(subset(cameras_pts, cameras_pts$placename %in% margay$placename), add=T, col='gold', overwrite=T)
-# 
-# jaguarundi <- subset(happy_data, Herpailurus.yagouaroundi==1)
-# terra::plot(AmistOsa, main='Jaguarundi')
-# terra::plot(protected_areas_dissolved, add=T, col='gray80')
-# terra::plot(cameras_pts, add=T, col='black')
-# terra::plot(subset(cameras_pts, cameras_pts$placename %in% jaguarundi$placename), add=T, col='gold', overwrite=T)
-
 #### How about some basic information on detections ####
 # inside vs. outside of protected areas
 # within SINAC biological corridors
 # in relation to conductance, current or LCPs from our study
-
 detection_df <- data.frame(species=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'),
                            detections_PA=NA,
                            detections_PA_pct=NA,
@@ -657,6 +640,11 @@ detection_df$detections_other_unprotected <- detection_df$detections_unprotected
 detection_df$detections_other_unprotected <- ifelse(detection_df$detections_other_unprotected < 0, 0, detection_df$detections_other_unprotected) #if a detection is in both SINAC and LCP unprotected areas, can be double counted
 detection_df$detections_other_unprotected_pct <- detection_df$detections_other_unprotected/detection_df$detections_totalcams
 
+tapir_natlpark <- terra::intersect(tapir_pts, natlparks_dissolved)
+nrow(tapir_natlpark)/nrow(tapir) #% of cameras detecting target sp in natlpark areas
+detection_df[1,11] <- nrow(tapir_natlpark)
+detection_df[1,12] <- nrow(tapir_natlpark)/nrow(tapir)
+
 jaguar_natlpark <- terra::intersect(jaguar_pts, natlparks_dissolved)
 nrow(jaguar_natlpark)/nrow(jaguar) #% of cameras detecting target sp in natlpark areas
 detection_df[2,11] <- nrow(jaguar_natlpark)
@@ -687,66 +675,22 @@ nrow(paca_natlpark)/nrow(paca) #% of cameras detecting target sp in natlpark are
 detection_df[7,11] <- nrow(paca_natlpark)
 detection_df[7,12] <- nrow(paca_natlpark)/nrow(paca)
 
+
 # since we have 2 collared peccary detections that are both SINAC BC and LCP unprotected, 
 # allocate one to each category so not to overinflate total
-detection_df[5,4] <- detection_df[5,4]-1
-detection_df[5,15] <- detection_df[5,15]-1
-detection_df[5,5] <- detection_df[5,4]/detection_df[5,10]
-detection_df[5,16] <-detection_df[5,16]/detection_df[5,10]
-
-#write.csv(detection_df, file='Data/spatial/CameraTraps/detection_summary.csv', row.names=F)
-
-## Try out some visuals
-# with total number of detections
-detection_only_df <- detection_df[,c(1,2,4,15,17)]
-detection_only_df <- reshape2::melt(detection_only_df, id='species')
-names(detection_only_df) <- c('species','variable','detections')
-detection_only_df$species <- factor(detection_only_df$species, levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'))
-
-# note: there seems to be 2 detections for collared peccary that co-occurred in SINAC BC and LCP unprotected
-# could note this in caption or remove 1 from each category so total is accurate
-abs_plot <- ggplot(detection_only_df, aes(fill=variable, y=detections, x=species)) + 
-  geom_bar(position="stack", stat="identity")+
-  ggtitle('A) Total')+
-  theme_classic()+
-  theme(axis.text.x = element_text(color='black', angle=60, hjust=1),
-        axis.text.y = element_text(color='black'),
-        legend.position=c(0.3,0.8))+
-  scale_y_continuous(name='Total detections')+
-  scale_x_discrete(name='')+
-  scale_fill_manual(name='',values=c('forestgreen','gold','gray','lightblue'),labels=c('Protected area','SINAC BC','LCP unprotected','Other unprotected'))
-abs_plot
-
-# with proportion of detections
-detection_only_pct_df <- detection_df[,c(1,3,5,16,18)]
-detection_only_pct_df <- reshape2::melt(detection_only_pct_df, id='species')
-names(detection_only_pct_df) <- c('species','variable','proportion')
-detection_only_pct_df$species <- factor(detection_only_pct_df$species, levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'))
-
-prop_plot <- ggplot(detection_only_pct_df, aes(fill=variable, y=proportion, x=species)) + 
-  geom_bar(position="stack", stat="identity")+
-  ggtitle('B) Proportional')+
-  theme_classic()+
-  theme(axis.text.x = element_text(color='black', angle=60, hjust=1),
-        axis.text.y = element_text(color='black'),
-        legend.position=c('none'))+
-  scale_y_continuous(name='Proportion of detections')+
-  scale_x_discrete(name='')+
-  scale_fill_manual(name='',values=c('forestgreen','gold','gray','lightblue'),labels=c('Protected area','SINAC BC','LCP unprotected','Other unprotected'))
-prop_plot
-
-# watch out for double counting
-# jpeg(filename='Figures/AmistOsa_detection_barplots.jpeg', height=5, width=7, units='in', res=300)
-#   grid.arrange(abs_plot, prop_plot, nrow=1)
-# dev.off()
+# update: this type of issue is more common with additional mega survey cams
+# detection_df[5,4] <- detection_df[5,4]-1
+# detection_df[5,15] <- detection_df[5,15]-1
+# detection_df[5,5] <- detection_df[5,4]/detection_df[5,10]
+# detection_df[5,16] <-detection_df[5,16]/detection_df[5,10]
 
 ## What about detections in relation to current or conductance?
-par(mfrow=c(1,1))
-hist(current_flow)
-stats::quantile(current_flow, probs=seq(0,1,0.1), na.rm=T)
-
-hist(conductance)
-stats::quantile(conductance, probs=seq(0,1,0.1), na.rm=T)
+# par(mfrow=c(1,1))
+# hist(current_flow)
+# stats::quantile(current_flow, probs=seq(0,1,0.1), na.rm=T)
+# 
+# hist(conductance)
+# stats::quantile(conductance, probs=seq(0,1,0.1), na.rm=T)
 
 # should use just plain points, 100m or 500m buffer?
 tapir_pts_buff <- terra::buffer(tapir_pts, width=500)
@@ -822,7 +766,7 @@ allspecies_circuit$Species_fac <- factor(allspecies_circuit$Species_fac,
 random_current <- terra::spatSample(current_flow, size=(as.integer(ncell(current_flow)/1000)),
                                     na.rm=T, as.df=T, values=T)
 random_conductance <- terra::spatSample(conductance, size=(as.integer(ncell(conductance)/1000)),
-                                    na.rm=T, as.df=T, values=T)
+                                        na.rm=T, as.df=T, values=T)
 random_circuit <- cbind.data.frame(random_current, random_conductance)
 names(random_circuit) <- c('current','conductance')
 random_circuit$Species <- 'Background'
@@ -842,37 +786,36 @@ current_flow_80th_unprotected <- terra::mask(current_flow_80th, protected_areas_
 plot(current_flow_80th_unprotected)
 current_flow_80th_unprotected_polygons <- terra::as.polygons(current_flow_80th_unprotected)
 
-high_current_unprotected_tapir <- terra::intersect(tapir_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_tapir <- terra::intersect(tapir_pts, current_flow_80th_unprotected_polygons)
 high_current_unprotected_tapir
 
-high_current_unprotected_jaguar <- terra::intersect(jaguar_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_jaguar <- terra::intersect(jaguar_pts, current_flow_80th_unprotected_polygons)
 high_current_unprotected_jaguar
 
-high_current_unprotected_whitelipped <- terra::intersect(whitelipped_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_whitelipped <- terra::intersect(whitelipped_pts, current_flow_80th_unprotected_polygons)
 high_current_unprotected_whitelipped
 
-high_current_unprotected_puma <- terra::intersect(puma_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_puma <- terra::intersect(puma_pts, current_flow_80th_unprotected_polygons)
 high_current_unprotected_puma
 
-high_current_unprotected_collared <- terra::intersect(collared_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_collared <- terra::intersect(collared_pts, current_flow_80th_unprotected_polygons)
 high_current_unprotected_collared
 
-high_current_unprotected_curassow <- terra::intersect(curassow_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_curassow <- terra::intersect(curassow_pts, current_flow_80th_unprotected_polygons)
 high_current_unprotected_curassow
 
-high_current_unprotected_paca <- terra::intersect(paca_pts_buff, current_flow_80th_unprotected_polygons)
+high_current_unprotected_paca <- terra::intersect(paca_pts, current_flow_80th_unprotected_polygons)
 high_current_unprotected_paca
 
-
-jpeg(filename='Figures/AmistOsa_conductance_current_boxplots.jpeg', height=5, width=7, units='in', res=300)
-  par(mfrow=c(2,1), mai = c(0.5, 1, 0.5, 0.1)) #bot, left, top, right
-  boxplot(conductance ~ Species_fac, data=allspecies_circuit, las=1, xlab='',
-        ylab='Conductance', cex.axis=0.75)
-  title('A) Conductance', adj=0)
-  boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
-        ylab='log(Current)', cex.axis=0.75, ylim=c(-10,3))
-  title('B) Current', adj=0)
-dev.off()
+# jpeg(filename='Figures/AmistOsa_conductance_current_boxplots.jpeg', height=5, width=7, units='in', res=300)
+# par(mfrow=c(2,1), mai = c(0.5, 1, 0.5, 0.1)) #bot, left, top, right
+# boxplot(conductance ~ Species_fac, data=allspecies_circuit, las=1, xlab='',
+#         ylab='Conductance', cex.axis=0.75)
+# title('A) Conductance', adj=0)
+# boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
+#         ylab='log(Current)', cex.axis=0.75, ylim=c(-10,3))
+# title('B) Current', adj=0)
+# dev.off()
 
 conductance_summary <- allspecies_circuit %>%
   dplyr::group_by(Species_fac) %>%
@@ -898,62 +841,164 @@ current_summary <- allspecies_circuit %>%
   as.data.frame()
 current_summary$IQR <- current_summary$q75-current_summary$q25
 
+## add high current to detection table
+detection_df$detections_highcurrent <- NA
+detection_df$detections_highcurrent_pct <- NA
+detection_df[1,19] <- table(high_current$Species_fac)[1] #tapir
+detection_df[2,19] <- table(high_current$Species_fac)[2] #jaguar
+detection_df[3,19] <- table(high_current$Species_fac)[3] #WLP
+detection_df[4,19] <- table(high_current$Species_fac)[4] #puma
+detection_df[5,19] <- table(high_current$Species_fac)[5] #collared
+detection_df[6,19] <- table(high_current$Species_fac)[6] #curassow
+detection_df[7,19] <- table(high_current$Species_fac)[7] #paca
+
+detection_df[1,20] <- table(high_current$Species_fac)[1]/detection_df$detections_totalcams[1] 
+detection_df[2,20] <- table(high_current$Species_fac)[2]/detection_df$detections_totalcams[2]
+detection_df[3,20] <- table(high_current$Species_fac)[3]/detection_df$detections_totalcams[3] 
+detection_df[4,20] <- table(high_current$Species_fac)[4]/detection_df$detections_totalcams[4] 
+detection_df[5,20] <- table(high_current$Species_fac)[5]/detection_df$detections_totalcams[5] 
+detection_df[6,20] <- table(high_current$Species_fac)[6]/detection_df$detections_totalcams[6] 
+detection_df[7,20] <- table(high_current$Species_fac)[7]/detection_df$detections_totalcams[7] 
+
+detection_df$detections_highcurrent_protected <- NA
+detection_df$detections_highcurrent_protected_pct <- NA
+detection_df$detections_highcurrent_unprotected <- NA
+detection_df$detections_highcurrent_unprotected_pct <- NA
+
+detection_df[1,23] <- nrow(high_current_unprotected_tapir)
+detection_df[2,23] <- nrow(high_current_unprotected_jaguar)
+detection_df[3,23] <- nrow(high_current_unprotected_whitelipped)
+detection_df[4,23] <- nrow(high_current_unprotected_puma)
+detection_df[5,23] <- nrow(high_current_unprotected_collared)
+detection_df[6,23] <- nrow(high_current_unprotected_curassow)
+detection_df[7,23] <- nrow(high_current_unprotected_paca)
+
+detection_df[1,24] <- nrow(high_current_unprotected_tapir)/detection_df$detections_totalcams[1]
+detection_df[2,24] <- nrow(high_current_unprotected_jaguar)/detection_df$detections_totalcams[2]
+detection_df[3,24] <- nrow(high_current_unprotected_whitelipped)/detection_df$detections_totalcams[3]
+detection_df[4,24] <- nrow(high_current_unprotected_puma)/detection_df$detections_totalcams[4]
+detection_df[5,24] <- nrow(high_current_unprotected_collared)/detection_df$detections_totalcams[5]
+detection_df[6,24] <- nrow(high_current_unprotected_curassow)/detection_df$detections_totalcams[6]
+detection_df[7,24] <- nrow(high_current_unprotected_paca)/detection_df$detections_totalcams[7]
+
+# then calculate protected high current detections by subtraction
+detection_df$detections_highcurrent_protected <- detection_df$detections_highcurrent - detection_df$detections_highcurrent_unprotected
+detection_df$detections_highcurrent_protected_pct <- detection_df$detections_highcurrent_protected/detection_df$detections_totalcams
+
+# export detection summary table
+#write.csv(detection_df, file="Data/spatial/CameraTraps/detection_summary.csv", row.names=F)
+
+## Try out some visuals
+# with total number of detections
+detection_only_df <- detection_df[,c(1,2,4,11,15,23)]
+detection_only_df <- reshape2::melt(detection_only_df, id='species')
+names(detection_only_df) <- c('species','variable','detections')
+detection_only_df$species <- factor(detection_only_df$species, levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'))
+detection_only_df$variable <- factor(detection_only_df$variable, levels = c("detections_PA", "detections_NP", "detections_SINACBC","detections_LCP_unprotected","detections_highcurrent_unprotected"))
+
+# note: there seems to be 2 detections for collared peccary that co-occurred in SINAC BC and LCP unprotected
+# could note this in caption or remove 1 from each category so total is accurate
+abs_plot <- ggplot(detection_only_df, aes(fill=variable, y=detections, x=species)) + 
+  geom_bar(position="dodge", stat="identity")+
+  #ggtitle('A) Total')+
+  theme_classic()+
+  theme(axis.text.x = element_text(color='black', angle=60, hjust=1),
+        axis.text.y = element_text(color='black'),
+        legend.position=c(0.15,0.8))+
+  scale_y_continuous(name='Total detections')+
+  scale_x_discrete(name='')+
+  scale_fill_manual(name='',values=c('dodgerblue','forestgreen','gold','gray','orange'),labels=c('Protected area','National park','SINAC BC','LCP unprotected','HC unprotected'))
+abs_plot
+
+# with proportion of detections
+detection_only_pct_df <- detection_df[,c(1,14,5,12,16,24)]
+detection_only_pct_df <- reshape2::melt(detection_only_pct_df, id='species')
+names(detection_only_pct_df) <- c('species','variable','proportion')
+detection_only_pct_df$species <- factor(detection_only_pct_df$species, levels=c('Tapir','Jaguar','WLP','Puma','Collared','Curassow','Paca'))
+detection_only_pct_df$variable <- factor(detection_only_pct_df$variable, levels = c("detections_unprotected_pct", "detections_NP_pct", "detections_SINACBC_pct","detections_LCP_unprotected_pct","detections_highcurrent_unprotected_pct"))
+
+# prop_plot <- ggplot(detection_only_pct_df, aes(fill=variable, y=proportion, x=species)) + 
+#   geom_bar(position="stack", stat="identity")+
+#   ggtitle('B) Proportional')+
+#   theme_classic()+
+#   theme(axis.text.x = element_text(color='black', angle=60, hjust=1),
+#         axis.text.y = element_text(color='black'),
+#         legend.position=c('none'))+
+#   scale_y_continuous(name='Proportion of detections')+
+#   scale_x_discrete(name='')+
+#   scale_fill_manual(name='',values=c('dodgerblue','gold','forestgreen','beige','gray'),labels=c('Protected area','SINAC BC','National park','LCP unprotected','HC unprotected'))
+# prop_plot
+
+# since proportions may not add up to 1 for each species:
+# any props above 1 mean something is double counted, e.g., a detection in both a SINAC BC and unprotected LCP
+# would have to come up with a way to allocate a detection in multiple categories
+# or drop some categories
+# or make new categories (e.g., in PA but not NP)
+prop_check <- detection_only_pct_df %>%
+  dplyr::group_by(species) %>%
+  dplyr::summarize(sum=sum(proportion)) %>%
+  as.data.frame()
+
+# watch out for double counting
+jpeg(filename='Figures/AmistOsa_detection_barplots.jpeg', height=5, width=7, units='in', res=300)
+   abs_plot
+dev.off()
 
 # boxplot(current ~ Species_fac, data=allspecies_circuit, las=2, xlab='')
-boxplot(current ~ Species_fac, data=allspecies_circuit, las=2, xlab='', ylim=c(0,1.5))
+#boxplot(current ~ Species_fac, data=allspecies_circuit, las=2, xlab='', ylim=c(0,1.5))
 # boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=2, xlab='')
 
 ## Arguably, we are more interested in movement/movement potential through unprotected areas
 
-par(mfrow=c(2,4), mai = c(0.1, 0.1, 0.1, 0.1))
-#plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='tapir')
-plot(AmistOsa, legend=F, main='tapir')
-plot(protected_areas_dissolved, add=T, col='forestgreen')
-plot(SINAC_bc, add=T, col='gold')
-plot(top5_LCP, col='dodgerblue', add=T)
-plot(tapir_pts, add=T)
-
-#plot(current_flow_80th_unprotected, col='royalblue')
-plot(AmistOsa, legend=F, main='jaguar')
-plot(protected_areas_dissolved, add=T, col='forestgreen')
-plot(SINAC_bc, add=T, col='gold')
-plot(top5_LCP, col='dodgerblue', add=T)
-plot(jaguar_pts, add=T)
-
-#plot(current_flow_80th_unprotected, col='royalblue')
-plot(AmistOsa, legend=F, main='WLP')
-plot(protected_areas_dissolved, add=T, col='forestgreen')
-plot(SINAC_bc, add=T, col='gold')
-plot(top5_LCP, col='dodgerblue', add=T)
-plot(whitelipped_pts, add=T)
-
-#plot(current_flow_80th_unprotected, col='royalblue')
-plot(AmistOsa, legend=F, main='puma')
-plot(protected_areas_dissolved, add=T, col='forestgreen')
-plot(SINAC_bc, add=T, col='gold')
-plot(top5_LCP, col='dodgerblue', add=T)
-plot(puma_pts, add=T)
-
-#plot(current_flow_80th_unprotected, col='royalblue')
-plot(AmistOsa, legend=F, main='collared')
-plot(protected_areas_dissolved, add=T, col='forestgreen')
-plot(SINAC_bc, add=T, col='gold')
-plot(top5_LCP, col='dodgerblue', add=T)
-plot(collared_pts, add=T)
-
-#plot(current_flow_80th_unprotected, col='royalblue')
-plot(AmistOsa, legend=F, main='curassow')
-plot(protected_areas_dissolved, add=T, col='forestgreen')
-plot(SINAC_bc, add=T, col='gold')
-plot(top5_LCP, col='dodgerblue', add=T)
-plot(curassow_pts, add=T)
-
-#plot(current_flow_80th_unprotected, col='royalblue')
-plot(AmistOsa, legend=F, main='paca')
-plot(protected_areas_dissolved, add=T, col='forestgreen')
-plot(SINAC_bc, add=T, col='gold')
-plot(top5_LCP, col='dodgerblue', add=T)
-plot(paca_pts, add=T)
+# par(mfrow=c(2,4), mai = c(0.1, 0.1, 0.1, 0.1))
+# #plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='tapir')
+# plot(AmistOsa, legend=F, main='tapir')
+# plot(protected_areas_dissolved, add=T, col='forestgreen')
+# plot(SINAC_bc, add=T, col='gold')
+# plot(top5_LCP, col='dodgerblue', add=T)
+# plot(tapir_pts, add=T)
+# 
+# #plot(current_flow_80th_unprotected, col='royalblue')
+# plot(AmistOsa, legend=F, main='jaguar')
+# plot(protected_areas_dissolved, add=T, col='forestgreen')
+# plot(SINAC_bc, add=T, col='gold')
+# plot(top5_LCP, col='dodgerblue', add=T)
+# plot(jaguar_pts, add=T)
+# 
+# #plot(current_flow_80th_unprotected, col='royalblue')
+# plot(AmistOsa, legend=F, main='WLP')
+# plot(protected_areas_dissolved, add=T, col='forestgreen')
+# plot(SINAC_bc, add=T, col='gold')
+# plot(top5_LCP, col='dodgerblue', add=T)
+# plot(whitelipped_pts, add=T)
+# 
+# #plot(current_flow_80th_unprotected, col='royalblue')
+# plot(AmistOsa, legend=F, main='puma')
+# plot(protected_areas_dissolved, add=T, col='forestgreen')
+# plot(SINAC_bc, add=T, col='gold')
+# plot(top5_LCP, col='dodgerblue', add=T)
+# plot(puma_pts, add=T)
+# 
+# #plot(current_flow_80th_unprotected, col='royalblue')
+# plot(AmistOsa, legend=F, main='collared')
+# plot(protected_areas_dissolved, add=T, col='forestgreen')
+# plot(SINAC_bc, add=T, col='gold')
+# plot(top5_LCP, col='dodgerblue', add=T)
+# plot(collared_pts, add=T)
+# 
+# #plot(current_flow_80th_unprotected, col='royalblue')
+# plot(AmistOsa, legend=F, main='curassow')
+# plot(protected_areas_dissolved, add=T, col='forestgreen')
+# plot(SINAC_bc, add=T, col='gold')
+# plot(top5_LCP, col='dodgerblue', add=T)
+# plot(curassow_pts, add=T)
+# 
+# #plot(current_flow_80th_unprotected, col='royalblue')
+# plot(AmistOsa, legend=F, main='paca')
+# plot(protected_areas_dissolved, add=T, col='forestgreen')
+# plot(SINAC_bc, add=T, col='gold')
+# plot(top5_LCP, col='dodgerblue', add=T)
+# plot(paca_pts, add=T)
 
 ## 9.3: Sampling unit based accumulation curves
 inc_dat <- total_obs %>% 

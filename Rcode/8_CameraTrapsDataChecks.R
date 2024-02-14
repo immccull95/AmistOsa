@@ -1,6 +1,6 @@
 ##################### AmistOsa camera traps: data checks ##########################
 # Date: 12-12-23
-# updated: 1-31-24: integrate mega survey
+# updated: 2-12-24: integrate mega survey with fixed deployment coordinates
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -52,9 +52,12 @@ dep_rs <- read.csv("Data/spatial/CameraTraps/road_survey/station_info.csv")
 img_rs <- read.csv("Data/spatial/CameraTraps/road_survey/database_main.csv")
 
 # Mega survey dataset (currently only using deployments with extracted data)
-dep_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format_extracted.csv")
-img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format.csv")
-cameras_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format_extracted.csv")
+#dep_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format_extracted.csv")
+dep_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format.csv")
+#img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format.csv")
+img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format_wPowershell.csv")
+#cameras_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format_extracted.csv")
+cameras_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format.csv")
 projects_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/projects_megasurvey_WI_format.csv")
 
 # DEM
@@ -175,6 +178,11 @@ img_ms$timestamp <- ymd_hms(img_ms$timestamp)
 img_ms <- img_ms %>% drop_na(timestamp) #get rid of one row that has weird date; could be malfunction
 range(img_ms$timestamp) #check range of timestamps 
 table(is.na(img_ms$timestamp)) #NA check
+# remove images from 2017 and earlier (no cameras deployments until 2019)
+img_ms$Year <- year(img_ms$timestamp)
+img_ms <- subset(img_ms, Year > 2018)
+summary(img_ms$Year)
+img_ms <- img_ms[,c(1:55)]
 
 ## analyze records with suspicious timestamps (2015-2019)
 images$year <- year(images$timestamp)
@@ -203,7 +211,9 @@ images <- subset(images, keep=='Yes')
 
 # Clean Osa grid data
 # images: remove unwanted species
-img2 <- subset(img2, !(common_name %in% c('nothing','dog','people','cat_domestic','cow','horse','uid')))
+img2 <- subset(img2, !(common_name %in% c('nothing','dog','people','cat_domestic','cow','horse','uid',
+                                          'opossum_uid','lizard_uid','snake','tinamou','guan_crested','iguana_green',
+                                          'squirrel_uid','toad','bird','bat')))
 
 # deployments: for now, remove rows with NA for days (mostly due to unknown end date; could amend later)
 # also remove rows with missing lat or long
@@ -237,7 +247,7 @@ dep_rs$start <- ymd(mdy(dep_rs$start)) #wonky, I know
 dep_rs$days <- interval(dep_rs$start, dep_rs$end)/ddays(1)
 hist(dep_rs$days)
 
-# For mega survey, need to fill in missing camera start/end dates for Corcovado cameras (and 1 other) based on image dates
+# For mega survey, need to fill in missing camera start/end dates based on image dates
 sum(is.na(img_ms$start_date))
 sum(is.na(img_ms$end_date))
 
@@ -246,11 +256,14 @@ ms_startenddates <- img_ms %>%
   dplyr::summarize(camstart = min(timestamp),
                    camend = max(timestamp)) %>%
   as.data.frame()
-ms_startenddates <- subset(ms_startenddates, placename %in% c('Aguas Azules','Banadero-Planes','Cabecera Rio Pavon','OWA','Ollas','Termo','Ticho-Planes','Rio Pavo','SITE_48'))
+#ms_startenddates <- subset(ms_startenddates, placename %in% c('Aguas Azules','Banadero-Planes','Cabecera Rio Pavon','OWA','Ollas','Termo','Ticho-Planes','Rio Pavo','SITE_48'))
+#missing_end_ms <- subset(dep_ms, is.na(dep_ms$end_date))
+#missing_end_ms <- missing_end_ms$placename
+#ms_startenddates <- subset(ms_startenddates, placename %in% missing_end_ms)
 ms_startenddates$camstart <- as.Date(ms_startenddates$camstart) #only want ymd
 ms_startenddates$camend <- as.Date(ms_startenddates$camend)
 # but already have recorded start date for SITE_48, so should remove
-ms_startenddates[7,2] <- NA
+#ms_startenddates[80,2] <- NA
 
 # but start and end dates somehow lost their date formatting? #$@#$
 sum(is.na(img_ms$start_date))
@@ -265,7 +278,10 @@ img_ms <- img_ms %>%
          end_date = coalesce(end_date, camend)) #works
 sum(is.na(img_ms$start_date)) #should be zero if everything matched
 sum(is.na(img_ms$end_date))
-img_ms <- img_ms[,c(1:55)]
+img_ms <- img_ms[,c(1:28,31:55)]
+img_ms <- img_ms %>% dplyr::rename_at(1, ~'project_id') #fix names from joining
+img_ms <- img_ms %>% dplyr::rename_at(2, ~'deployment_id')
+names(img_ms)
 
 # Basic camera trap summaries#
 # Count the number of camera locations
@@ -315,7 +331,7 @@ m4 <- leaflet() %>%
   addCircleMarkers(      
     lng=dep_ms$longitud, lat=dep_ms$latitud,
     popup=paste(dep_ms$placename)) # include a popup with the placename!
-m4 #looks OK!
+m4 #looks OK now...had some weird coordinates before we fixed them
 
 # if had typo in a coordinate, could use this (example)
 #dep$longitude[dep$placename=="ALG069"] <- -112.5075
@@ -393,7 +409,7 @@ img_combined <- rbind.data.frame(img_combined, img_rs)
 names(img_combined)
 names(img_ms)
 img_ms <- img_ms[,c(1:27)] #remove unwanted columns from join, correct duplicate colnames
-colnames(img_ms)[1:2] <- c('project_id', 'deployment_id')
+#colnames(img_ms)[1:2] <- c('project_id', 'deployment_id') #already did this above
 setdiff(names(img_ms), names(img_combined)) #check
 img_combined <- rbind.data.frame(img_combined, img_ms)
 
@@ -452,13 +468,41 @@ dep_ms <- dep_ms %>%
   mutate(start_date = coalesce(start_date, camstart),
          end_date = coalesce(end_date, camend)) #works
 sum(is.na(dep_ms$start_date)) #should be zero if everything matched
-sum(is.na(dep_ms$end_date))
+sum(is.na(dep_ms$end_date)) 
+
+#some failed to fill in end dates for some reason, possibly some inconsistency in placenames, deployment_id, etc
+# easier just to fill these in manually then try to track down source of this old problem
+dep_ms$end_date[dep_ms$placename=="MS#111 "] <- ymd("2020-07-06") #join failed because of space!
+#dep_ms$end_date[dep_ms$placename=="MS#129"] <- NA #no image records
+#dep_ms$end_date[dep_ms$placename=="MS#139"] <- NA #no image records
+#dep_ms$end_date[dep_ms$placename=="MS#140"] <- NA #no image records
+#dep_ms$end_date[dep_ms$placename=="MS#141"] <- NA #no image records
+#dep_ms$end_date[dep_ms$placename=="MS#160"] <- NA #no image records (there is a #MS16 with images, but I don't think that is 160)
+#dep_ms$end_date[dep_ms$placename=="MS#159"] <- NA #no image records
+#dep_ms$end_date[dep_ms$placename=="MS#158"] <- NA #no image records
+dep_ms$end_date[dep_ms$placename=="MS175S"] <- ymd("2020-05-05")
+
 dep_ms <- dep_ms[,c(1:28)]
 dep_ms$days <- interval(dep_ms$start_date, dep_ms$end_date)/ddays(1)
 hist(dep_ms$days, main='Mega survey', xlab='Days')
 setdiff(names(dep_ms), names(dep_combined)) #check
 
+# fix spaces in placenames
+dep_ms$placename <- ifelse(dep_ms$placename=='MS#111 ', 'MS#111', dep_ms$placename)
+dep_ms$placename <- ifelse(dep_ms$placename=='MS#70 ', 'MS#70', dep_ms$placename)
+dep_ms$placename <- ifelse(dep_ms$placename=='MS#72 ', 'MS#72', dep_ms$placename)
+
+dep_ms <- dep_ms %>% drop_na(end_date) #remove deployments with no end date because no images captured that we can use to infer end date(broken camera?)
+
 dep_combined <- rbind.data.frame(dep_combined, dep_ms)
+
+# fix some faulty start dates:
+# basic ifelse, dplyr and data.table don't work; keep converting dates to numbers and can't convert back
+dep_combined$start_date[dep_combined$placename=="MS#152"] <- ymd("2020-02-12")
+dep_combined$start_date[dep_combined$placename=="MS#153"] <- ymd("2020-02-14")
+dep_combined$start_date[dep_combined$placename=="MS#151"] <- ymd("2020-02-09")
+dep_combined$days <- interval(dep_combined$start_date, dep_combined$end_date)/ddays(1)
+hist(dep_combined$days) 
 
 # Chris 'ultimate' leaflet map:
 # First, set a single categorical variable of interest from station covariates for summary graphs. If you do not have an appropriate category use "project_id".
@@ -605,7 +649,7 @@ p <- p %>%   layout(yaxis = list(
   tickmode = "array"))
 p
 
-#if need to fix a date (doesn't appear we need to now):
+#if need to fix a date:
 #dep$end_date[dep$deployment_id=="ALG036_2019-04-04"] <- ymd("2019-11-21") 
 #remember to format it as a date object
 
@@ -690,7 +734,7 @@ for(i in 1:max(dep_tmp$plot_group))
 # but some of the new images don't have image_id! Argh!
 # so need to create a new rowID
 img_combined$rowID <- seq(1,nrow(img_combined),1)
-quarantine <- subset(img_combined, deployment_id %in% c('G69_b','G119_a','G19_a','G50_a','G48_a','Rf8_M130_4122022','Rf7_M064_4122022','Rf4_M055_2122022','MS#182'))
+quarantine <- subset(img_combined, deployment_id %in% c('G69_b','G119_a','G19_a','G50_a','G48_a','Rf8_M130_4122022','Rf7_M064_4122022','Rf4_M055_2122022','MS#182','MS#149','MS#166','MS#26','MS#22','MS#108'))
 quarantine <- left_join(quarantine[,c('deployment_id','timestamp','rowID')], dep_combined[,c('deployment_id','start_date','end_date')], by='deployment_id')
 quarantine$capture_date <- as.Date(quarantine$timestamp)
 quarantine$keep <- ifelse(quarantine$capture_date <= quarantine$end_date & quarantine$capture_date >= quarantine$start_date, 'Yes','No')
@@ -804,6 +848,7 @@ img_combined$common_name <- ifelse(img_combined$common_name=='monkey_spider',"Ge
 img_combined$common_name <- ifelse(img_combined$common_name %in% c('tapir','tapir_bairds'),"Baird's Tapir", img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='rat_spiny',"Tome's Spiny Rat", img_combined$common_name)
 #img_combined$common_name <- ifelse(img_combined$common_name=='capuchin_whitefaced',"White-faced capuchin", img_combined$common_name)
+img_combined$common_name <- ifelse(img_combined$common_name=='cacomistle',"Cacomistle", img_combined$common_name)
 
 # Finally, a few coatis were logged as Nasua nasua (S American species, not in CR)
 # Most likely these are Nasua narica
@@ -882,6 +927,18 @@ img_combined$common_name <- ifelse(img_combined$common_name=='Panamanian White-f
 # # even rows designated as not blank may have blank in species
 # images_sub$species[images_sub$species==""] <- NA
 # images_sub <- images_sub[!is.na(images_sub$species),]
+
+## Save WI format datasets for combined projects
+#write.csv(img_combined, file="Data/spatial/CameraTraps/images_combined_projects.csv", row.names=F)
+#write.csv(dep_combined, file="Data/spatial/CameraTraps/deployments_combined_projects.csv", row.names=F)
+
+cameras_combined <- dep_combined[,c('project_id','deployment_id','placename')]
+cameras_combined <- left_join(cameras_combined, cameras_ms, by=c('placename'='camera_name'))
+cameras_combined <- cameras_combined[,c(1:3, 5:9)]
+cameras_combined$camera_id <- ifelse(is.na(cameras_combined$camera_id), cameras_combined$deployment_id, cameras_combined$camera_id)
+cameras_combined <- cameras_combined[,c(1,4,3,5,6,7,8)]
+names(cameras_combined) <- c('project_id','camera_id','camera_name','make','model','serial_number','year_purchased')
+#write.csv(cameras_combined, file="Data/spatial/CameraTraps/cameras_combined_projects.csv", row.names=F)
 
 images_sub <- img_combined
 

@@ -1,6 +1,6 @@
 ##################### Mega survey camera traps: formatting ########################
 # Date: 1-29-24
-# updated: 2-8-24: add mega survey images from powershell processing
+# updated: 2-12-24: fix some deployment coordinates
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -39,6 +39,19 @@ powershell <- read.csv("Data/spatial/CameraTraps/megasurvey/Mega_transect_sorted
 
 # species list from other data; can be used to get common and Latin names when missing
 other_splist <- read.csv("Data/spatial/CameraTraps/wildlife-insights/2003884_raw_species_list.csv")
+
+# update: mega survey waypoints
+# need these to identify incorrect deployment locations
+waypoints <- terra::vect("Data/spatial/CameraTraps/megasurvey/waypoints/Mega_Survey_Set_-_Final_March_2020 waypoints.shp")
+waypoints_coordinates <- as.data.frame(terra::geom(waypoints))
+waypoints_df <- as.data.frame(waypoints)
+waypoints_df$xWaypoint <- waypoints_coordinates$x
+waypoints_df$yWaypoint <- waypoints_coordinates$y
+waypoints_df <- waypoints_df[,c('Name','xWaypoint','yWaypoint')]
+#write.csv(waypoints_df, "Data/spatial/CameraTraps/megasurvey/waypoints/waypoints_df.csv", row.names=F)
+
+# file was such a mess I cleaned it up in Excel (and only kept megasurvey sites)
+waypoints_df_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/waypoints/waypoints_df_megasurvey.csv")
 
 #### Main program ####
 ## Deployments in WI format
@@ -142,7 +155,7 @@ deployments_WI_format <- rbind.data.frame(other_tump, pila_tump)
 
 # We have a similar issue with MS#54 and 57 in Corcovado (same coordinates)
 # There appear to be 2 cameras, but without recorded start and end dates,
-# there is no way of linking images to either of the 2 cameras when there
+# there is no way of linking images to either of the 2 cameras there
 # is no common attribute between the Corcovado camera and image datasets
 # Therefore, we have to treat these as a single camera
 length(unique(deployments_WI_format$placename)) #indeed, only duplicate is Banadero-Planes
@@ -150,9 +163,57 @@ deployments_WI_format <- deployments_WI_format %>%
   filter(duplicated(placename) == F) %>%
   as.data.frame()
 
+# compare deployment coordinates to waypoints
+## nurse, this could get messy...
+surgery <- left_join(deployments_WI_format, waypoints_df_ms[,c(3:5)], by=c('deployment_id'='Name'))
+plot(longitude ~ xWaypoint, data=surgery, pch=20) #won't work without matches!
+
+# use this to identify coordinates that likely are wrong
+fig <- plot_ly(data = surgery,                  
+               x = ~xWaypoint, y = ~longitude,
+               type="scatter",
+               mode='markers')               
+fig
+
+# manually sub in coordinates provided by Eleanor for MS# 29-32
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#29"] <- 8.699251
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#29"] <- -83.329189
+
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#30"] <- 8.699251
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#30"] <- -83.329189
+
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#31"] <- 8.701276
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#31"] <- -83.328693
+
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#32"] <- 8.701276
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#32"] <- -83.328693
+
+# manually sub in coordinates from waypoints for MS 20, 21, 108, 158, 138
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#20"] <- 8.461318
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#20"] <- -83.47005
+
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#21"] <- 8.468192
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#21"] <- -83.48104
+
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#108"] <- 8.721409
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#108"] <- -83.22795
+
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#158"] <- 8.94182 #this one looked right already
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#158"] <- -82.92937 #this one looked like a typo
+
+deployments_WI_format$latitude[deployments_WI_format$deployment_id=="MS#138"] <- 8.784631 #this coordinate agreed
+deployments_WI_format$longitude[deployments_WI_format$deployment_id=="MS#138"] <- -82.96161 #trust waypoint over spreadsheet (which is more likely to have typo, but this doesn't look like a typo- some digits would be same)...mapping coordinates shows waypoint is likely correct
+
+m8 <- leaflet() %>%             
+  addTiles() %>%         
+  addCircleMarkers(      
+    lng=deployments_WI_format$longitude, lat=deployments_WI_format$latitude,
+    popup=paste(deployments_WI_format$deployment_id)) # include a popup with the placename!
+m8 
+
 #write.csv(deployments_WI_format[,c(1:28)], "Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format.csv", row.names=F)
 
-# also save version with just extracted cameras
+# also save version with just extracted cameras (has none of the coordinate corrected sites)
 deployments_WI_format_ext <- subset(deployments_WI_format, camera_functioning %in% c('extracted', 'extracted '))
 #write.csv(deployments_WI_format_ext[,c(1:28)], "Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format_extracted.csv", row.names=F)
 
@@ -505,7 +566,7 @@ cameras_WI_format$make[cameras_WI_format$make==""] <- NA
 cameras_WI_format_ext <- subset(cameras_WI_format, STATUS %in% c('extracted ', 'extracted'))
 #write.csv(cameras_WI_format_ext[,c(1:7)], "Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format_extracted.csv", row.names=F)
 
-### Get list of suspicious camera trap locations:
+### Get list of suspicious camera trap locations to send to collaborators for inspection
 # MS#158, 32, 31, 30, 29, 20, 21, 108
 
 suspicious_deployments <- subset(deployments_WI_format, placename %in% 

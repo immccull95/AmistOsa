@@ -50,10 +50,17 @@ mod_dat <- left_join(total_cr, z_locs)
 
 #### Analyze influence of categorical predictor ####
 table(mod_dat$Protected)
+table(mod_dat$natlpark)
 
 boxplot(mod_dat$Tapirus.bairdii~mod_dat$Protected,
         las=1,
         xlab="Protected",
+        ylab="Habitat use",
+        main='Tapir')
+
+boxplot(mod_dat$Tapirus.bairdii~mod_dat$natlpark,
+        las=1,
+        xlab="National park",
         ylab="Habitat use",
         main='Tapir')
 
@@ -117,7 +124,7 @@ summary(lm_curassow)
 # 
 # ## Visualize predictions
 effect_plot(lm_tapir,                  # The model object
-            pred = z.meanForestPatchArea,  # The variable you want to predict
+            pred = z.natlpark_dist_m,  # The variable you want to predict
             interval = TRUE,         # Whether you want confidence intervals (default = 0.95)
             partial.residuals = T,   # Show the residual variation -after accounting for fixed effects
             y.label = "Habitat use", # Change the y axis label
@@ -148,6 +155,9 @@ focal_sp <- "Tapirus.bairdii"
 #focal_sp <- "Panthera.onca"
 #focal_sp <- "Tayassu.pecari"
 #focal_sp <- "Puma.concolor"
+#focal_sp <- "Crax.rubra"
+#focal_sp <- "Cuniculus.paca"
+#focal_sp <- "Pecari.tajacu"
 
 # subset to 2018 (or not)
 #tmp_week <- weekly_obs[substr(weekly_obs$date,1,4)==2018,]
@@ -180,6 +190,24 @@ eff_mat <- as.matrix(eff_mat)
 
 # Prepare to feed into unmarked package
 table(locs$placename == row.names(y_mat))
+
+# troubleshoot if can't make unmarkedFramOccu
+# in this case, seems to be no MS#117 images in y_mat
+# I looked in the combined image dataset and there are only 3 primate images from that camera in entire study
+# not sure why it is tripping things up here
+# regardless, could just add row of 0s since no detections other than 1 monkey species
+# test <- as.data.frame(y_mat)
+# test$placename <- row.names(test)
+# setdiff(z_locs$placename, test$placename)
+# z_locs$placename[!(z_locs$placename %in% test$placename)]
+# 
+# test <- rbind(test[,c(1:228)], rep(0,228))
+# rownames(test) <- c(rownames(test)[1:365], 'MS#117')
+# test_mat <- as.matrix(test)
+# y_mat <- test_mat
+
+## However, that camera only has 1 day of deployment, so can just remove entirely from analysis
+z_locs <- subset(z_locs, !(placename=='MS#117'))
 
 # Build an unmarkedFramOccu
 un_dat <- unmarkedFrameOccu(y = y_mat, # your occupancy data
@@ -228,27 +256,28 @@ summary(m3)
 backTransform(m3, type='det')
 #backTransform(m3, type='state')
 
-## Trying random intercept model per lme4
-m4 <- occu(formula = ~1 ~ 
-             z.natlpark_dist_m + 
-             #z.canopy_height_m + 
-             z.meanForestPatchArea+
-             (1|natlpark),
-           data=un_dat)
-summary(m4)
-randomTerms(m4, level=0.95) #seems that the intercepts are similar and both close to 0
-
-## Trying random intercept and slope per lme4
-m5 <- occu(formula = ~1 ~ 
-             z.natlpark_dist_m + 
-             #z.canopy_height_m + 
-             z.meanForestPatchArea +
-             (1 + z.natlpark_dist_m || natlpark) +
-             #(1 + z.canopy_height_m || natlpark) +
-             (1 + z.meanForestPatchArea || natlpark),
-           data=un_dat)
-summary(m5)
-randomTerms(m5, level=0.95)
+# These other models are minimally different from the m3 model
+# ## Trying random intercept model per lme4
+# m4 <- occu(formula = ~1 ~ 
+#              z.natlpark_dist_m + 
+#              #z.canopy_height_m + 
+#              z.meanForestPatchArea+
+#              (1|natlpark),
+#            data=un_dat)
+# summary(m4)
+# randomTerms(m4, level=0.95) #seems that the intercepts are similar and both close to 0
+# 
+# ## Trying random intercept and slope per lme4
+# m5 <- occu(formula = ~1 ~ 
+#              z.natlpark_dist_m + 
+#              #z.canopy_height_m + 
+#              z.meanForestPatchArea +
+#              (1 + z.natlpark_dist_m || natlpark) +
+#              #(1 + z.canopy_height_m || natlpark) +
+#              (1 + z.meanForestPatchArea || natlpark),
+#            data=un_dat)
+# summary(m5)
+# randomTerms(m5, level=0.95)
 
 #model.sel(m0,m1,m2,m3)
 
@@ -269,25 +298,155 @@ new_dat <- cbind(expand.grid(
 new_dat <- predict(m3, type="state", newdata = new_dat, appendData=TRUE)
 
 #Plot the results
-p1 <- ggplot(new_dat, aes(x = z.natlpark_dist_m, y = Predicted)) + # mean line
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
-  geom_path(size = 1) +
-  ggtitle(focal_sp)+
-  labs(x = "Distance to NP", y = "Occupancy probability") + # axis labels
-  theme_classic() +
-  coord_cartesian(ylim = c(0,1))
-p1
+# p1 <- ggplot(new_dat, aes(x = z.natlpark_dist_m, y = Predicted)) + # mean line
+#   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
+#   geom_path(size = 1) +
+#   ggtitle(focal_sp)+
+#   labs(x = "Distance to NP", y = "Occupancy probability") + # axis labels
+#   theme_classic() +
+#   coord_cartesian(ylim = c(0,1))
+# p1
+# 
+# p2 <- ggplot(new_dat, aes(x = z.forest_core_dist_m, y = Predicted)) + # mean line
+#   geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
+#   geom_path(size = 1) +
+#   ggtitle(focal_sp)+
+#   labs(x = "Distance to core forest", y = "Occupancy probability") + # axis labels
+#   theme_classic() +
+#   coord_cartesian(ylim = c(0,1))
+# p2
 
-p2 <- ggplot(new_dat, aes(x = z.forest_core_dist_m, y = Predicted)) + # mean line
-  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.5, linetype = "dashed") + #Confidence intervals
-  geom_path(size = 1) +
-  ggtitle(focal_sp)+
-  labs(x = "Distance to core forest", y = "Occupancy probability") + # axis labels
-  theme_classic() +
-  coord_cartesian(ylim = c(0,1))
-p2
 
-#### Create predicted surface of occupancy probability ####
+#### Spatial predictions of occupancy models ####
+# Need to run chunk "Create predictor surfaces for occupancy probability" first
+# for basic model (m3)
+pred_dat <- cbind.data.frame(forest_core_grid_rast_std, 
+                  protected_grid_rast_std, 
+                  canopy_resampled_std, 
+                  protected_area_distance_rast_std, 
+                  forest_core_distance_rast_std,
+                  natlpark_distance_rast_std,
+                  pct_ag_grid_rast,
+                  forest_patcharea_grid_rast_std,
+                  forest_npatch_grid_rast_std,
+                  protected_binary_rast,
+                  natlpark_binary_rast) #had to get rid of NAs for this to work
+names(pred_dat) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
+                     'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.pct_ag',
+                     'z.meanForestPatchArea',' z.nForestPatches','Protected','NatlPark')
+pred_dat$Protected <- ifelse(pred_dat$Protected==1, 'Yes','No')
+pred_dat$Protected <- as.factor(pred_dat$Protected)
+pred_dat$NatlPark <- ifelse(pred_dat$NatlPark==1, 'Yes','No')
+pred_dat$NatlPark <- as.factor(pred_dat$NatlPark)
+
+pred_dat <- predict(m3, type="state", newdata = pred_dat, appendData=TRUE)
+xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))#just need coordinates
+pred_dat$x <- xy[,1]
+pred_dat$y <- xy[,2]
+pred_dat_tmp <- pred_dat[,c('x','y','Predicted')]
+
+prediction_rasterm3 <- terra::rast(pred_dat_tmp, type='xyz', crs=crs(protected_grid_rast))
+prediction_rasterm3
+terra::plot(prediction_rasterm3, main=focal_sp, range=c(0,1))#, range=c(0,0.8))
+plot(AmistOsa, add=T)
+hist(prediction_rasterm3)
+
+prediction_rasterm3_mask <- terra::mask(prediction_rasterm3, AmistOsa, inverse=F)
+plot(prediction_rasterm3_mask, main=focal_sp, range=c(0,1))
+plot(AmistOsa, add=T)
+
+occupancyname <- paste0("Data/spatial/occupancy_models/occupancy_model_" ,focal_sp,".tif")
+#terra::writeRaster(prediction_rasterm3_mask, filename=occupancyname, overwrite=T)
+
+modeloutput <- as.data.frame(summary(m3))
+modeloutput_name <- paste0("Data/spatial/occupancy_models/occupancy_model_summary" ,focal_sp,".csv")
+write.csv(modeloutput, modeloutput_name, row.names=T)
+
+#crossVal(m3, method='Kfold', folds=10)
+
+## Spatial predictions for random intercept model (m4)
+# pred_datm4 <- cbind.data.frame(forest_core_grid_rast_std, 
+#                                protected_grid_rast_std, 
+#                                canopy_resampled_std, 
+#                                protected_area_distance_rast_std, 
+#                                forest_core_distance_rast_std,
+#                                natlpark_distance_rast_std,
+#                                forest_patcharea_grid_rast_std,
+#                                protected_binary_rast,
+#                                natlpark_binary_rast) #had to get rid of NAs for this to work
+# names(pred_datm4) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
+#                        'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.meanForestPatchArea',
+#                        'Protected','natlpark')
+# pred_datm4$Protected <- ifelse(pred_datm4$Protected==1, 'Yes','No')
+# pred_datm4$Protected <- as.factor(pred_datm4$Protected)
+# pred_datm4$natlpark <- ifelse(pred_datm4$natlpark==1, 'Yes','No')
+# pred_datm4$natlpark <- as.factor(pred_datm4$natlpark)
+# 
+# pred_datm4 <- predict(m4, type="state", newdata = pred_datm4, appendData=TRUE)
+# xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
+# pred_datm4$x <- xy[,1]
+# pred_datm4$y <- xy[,2]
+# pred_datm4_tmp <- pred_datm4[,c('x','y','Predicted')]
+# 
+# prediction_rasterm4 <- terra::rast(pred_datm4_tmp, type='xyz', crs=crs(protected_grid_rast))
+# prediction_rasterm4
+# plot(prediction_rasterm4, main=focal_sp, range=c(0,1))
+# plot(AmistOsa, add=T)
+# 
+# prediction_rasterm4_mask <- terra::mask(prediction_rasterm4, AmistOsa, inverse=F)
+# plot(prediction_rasterm4_mask, main=focal_sp, range=c(0,0.9))
+# plot(AmistOsa, add=T)
+# 
+# crossVal(m4, method='Kfold', folds=10)
+# 
+# ## Spatial predictions for random slope and random intercept model (m5)
+# pred_datm5 <- cbind.data.frame(forest_core_grid_rast_std, 
+#                                protected_grid_rast_std, 
+#                                canopy_resampled_std, 
+#                                protected_area_distance_rast_std, 
+#                                forest_core_distance_rast_std,
+#                                natlpark_distance_rast_std,
+#                                forest_patcharea_grid_rast_std,
+#                                protected_binary_rast,
+#                                natlpark_binary_rast) #had to get rid of NAs for this to work
+# names(pred_datm5) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
+#                        'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.meanForestPatchArea',
+#                        'Protected','natlpark')
+# pred_datm5$Protected <- ifelse(pred_datm5$Protected==1, 'Yes','No')
+# pred_datm5$Protected <- as.factor(pred_datm5$Protected)
+# pred_datm5$natlpark <- ifelse(pred_datm5$natlpark==1, 'Yes','No')
+# pred_datm5$natlpark <- as.factor(pred_datm5$natlpark)
+# 
+# pred_datm5 <- predict(m5, type="state", newdata = pred_datm5, appendData=TRUE)
+# xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
+# pred_datm5$x <- xy[,1]
+# pred_datm5$y <- xy[,2]
+# pred_datm5_tmp <- pred_datm5[,c('x','y','Predicted')]
+# 
+# prediction_rasterm5 <- terra::rast(pred_datm5_tmp, type='xyz', crs=crs(protected_grid_rast))
+# prediction_rasterm5
+# plot(prediction_rasterm5, main=focal_sp, range=c(0,1))
+# plot(AmistOsa, add=T)
+# hist(prediction_rasterm5)
+# 
+# prediction_rasterm5_mask <- terra::mask(prediction_rasterm5, AmistOsa, inverse=F)
+# plot(prediction_rasterm5_mask, main=focal_sp, range=c(0,0.9))
+# plot(AmistOsa, add=T)
+# 
+# prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5, natlparks_dissolved, inverse=T)
+# prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5_unNP, AmistOsa, inverse=F)
+# plot(prediction_rasterm5_unNP)
+# plot(AmistOsa, add=T)
+# 
+# crossVal(m5, method='Kfold', folds=10)
+# 
+# ## compare predictions
+# pred_comp <- data.frame(m3=pred_dat$Predicted, m4=pred_datm4$Predicted, m5=pred_datm5$Predicted)
+# cor(pred_comp, method='pearson')
+# cor(pred_comp, method='spearman')
+
+#### Create predictor surfaces for occupancy probability ####
+# Takes a few mins
 # Study area: make into raster
 AmistOsa <- terra::vect("Data/spatial/ClimateHubs/AmistOsa_31971.shp")
 AmistOsa_rast10 <- terra::rast(AmistOsa, resolution=c(500,500), vals=1) 
@@ -565,123 +724,55 @@ summary(natlpark_binary_rast)
 # plot(protected_grid_rast_std)
 # protected_grid_rast_std
 
-## Spatial predictions for basic model (m3)
-pred_dat <- cbind.data.frame(forest_core_grid_rast_std, 
-                  protected_grid_rast_std, 
-                  canopy_resampled_std, 
-                  protected_area_distance_rast_std, 
-                  forest_core_distance_rast_std,
-                  natlpark_distance_rast_std,
-                  pct_ag_grid_rast,
-                  forest_patcharea_grid_rast_std,
-                  forest_npatch_grid_rast_std,
-                  protected_binary_rast) #had to get rid of NAs for this to work
-names(pred_dat) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                     'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.pct_ag',
-                     'z.meanForestPatchArea',' z.nForestPatches','Protected')
-pred_dat$Protected <- ifelse(pred_dat$Protected==1, 'Yes','No')
-pred_dat$Protected <- as.factor(pred_dat$Protected)
 
-pred_dat <- predict(m3, type="state", newdata = pred_dat, appendData=TRUE)
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))#just need coordinates
-pred_dat$x <- xy[,1]
-pred_dat$y <- xy[,2]
-pred_dat_tmp <- pred_dat[,c('x','y','Predicted')]
 
-prediction_rasterm3 <- terra::rast(pred_dat_tmp, type='xyz', crs=crs(protected_grid_rast))
-prediction_rasterm3
-terra::plot(prediction_rasterm3, main=focal_sp, range=c(0,1))#, range=c(0,0.8))
+
+
+
+### Once occupancy models already run, create multi-panel raster plot ####
+tapir_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Tapirus.bairdii.tif")
+jaguar_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Panthera.onca.tif")
+WLP_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Tayassu.pecari.tif")
+puma_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Puma.concolor.tif")
+collared_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Pecari.tajacu.tif")
+curassow_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Crax.rubra.tif")
+paca_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Cuniculus.paca.tif")
+
+jpeg(filename='Figures/AmistOsa_occupancy_models.jpeg', height=5, width=7, units='in', res=300)
+par(mfrow=c(2,4), mai=c(1,1,1,1))
+scalerange <- c(0,0.8)
+plot(tapir_occu, axes=F, box=T, range=scalerange)
 plot(AmistOsa, add=T)
-hist(prediction_rasterm3)
+title('Tapir') #use line argument to make closer to plot box
 
-prediction_rasterm3_mask <- terra::mask(prediction_rasterm3, AmistOsa, inverse=F)
-plot(prediction_rasterm3_mask, main=focal_sp, range=c(0,0.9))
+plot(jaguar_occu, axes=F, box=T, range=scalerange)
 plot(AmistOsa, add=T)
+title('Jaguar')
 
-crossVal(m3, method='Kfold', folds=10)
-
-## Spatial predictions for random intercept model (m4)
-pred_datm4 <- cbind.data.frame(forest_core_grid_rast_std, 
-                               protected_grid_rast_std, 
-                               canopy_resampled_std, 
-                               protected_area_distance_rast_std, 
-                               forest_core_distance_rast_std,
-                               natlpark_distance_rast_std,
-                               forest_patcharea_grid_rast_std,
-                               protected_binary_rast,
-                               natlpark_binary_rast) #had to get rid of NAs for this to work
-names(pred_datm4) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.meanForestPatchArea',
-                       'Protected','natlpark')
-pred_datm4$Protected <- ifelse(pred_datm4$Protected==1, 'Yes','No')
-pred_datm4$Protected <- as.factor(pred_datm4$Protected)
-pred_datm4$natlpark <- ifelse(pred_datm4$natlpark==1, 'Yes','No')
-pred_datm4$natlpark <- as.factor(pred_datm4$natlpark)
-
-pred_datm4 <- predict(m4, type="state", newdata = pred_datm4, appendData=TRUE)
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
-pred_datm4$x <- xy[,1]
-pred_datm4$y <- xy[,2]
-pred_datm4_tmp <- pred_datm4[,c('x','y','Predicted')]
-
-prediction_rasterm4 <- terra::rast(pred_datm4_tmp, type='xyz', crs=crs(protected_grid_rast))
-prediction_rasterm4
-plot(prediction_rasterm4, main=focal_sp, range=c(0,1))
+plot(WLP_occu, axes=F, box=T, range=scalerange)
 plot(AmistOsa, add=T)
+title('WLP')
 
-prediction_rasterm4_mask <- terra::mask(prediction_rasterm4, AmistOsa, inverse=F)
-plot(prediction_rasterm4_mask, main=focal_sp, range=c(0,0.9))
+plot(puma_occu, axes=F, box=T, range=scalerange)
 plot(AmistOsa, add=T)
+title('Puma')
 
-crossVal(m4, method='Kfold', folds=10)
-
-## Spatial predictions for random slope and random intercept model (m5)
-pred_datm5 <- cbind.data.frame(forest_core_grid_rast_std, 
-                               protected_grid_rast_std, 
-                               canopy_resampled_std, 
-                               protected_area_distance_rast_std, 
-                               forest_core_distance_rast_std,
-                               natlpark_distance_rast_std,
-                               forest_patcharea_grid_rast_std,
-                               protected_binary_rast,
-                               natlpark_binary_rast) #had to get rid of NAs for this to work
-names(pred_datm5) <- c('z.pct_forest_core', 'z.pct_protected','z.canopy_height_m',
-                       'z.protected_area_dist_m','z.forest_core_dist_m','z.natlpark_dist_m','z.meanForestPatchArea',
-                       'Protected','natlpark')
-pred_datm5$Protected <- ifelse(pred_datm5$Protected==1, 'Yes','No')
-pred_datm5$Protected <- as.factor(pred_datm5$Protected)
-pred_datm5$natlpark <- ifelse(pred_datm5$natlpark==1, 'Yes','No')
-pred_datm5$natlpark <- as.factor(pred_datm5$natlpark)
-
-pred_datm5 <- predict(m5, type="state", newdata = pred_datm5, appendData=TRUE)
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
-pred_datm5$x <- xy[,1]
-pred_datm5$y <- xy[,2]
-pred_datm5_tmp <- pred_datm5[,c('x','y','Predicted')]
-
-prediction_rasterm5 <- terra::rast(pred_datm5_tmp, type='xyz', crs=crs(protected_grid_rast))
-prediction_rasterm5
-plot(prediction_rasterm5, main=focal_sp, range=c(0,1))
+plot(collared_occu, axes=F, box=T, range=scalerange)
 plot(AmistOsa, add=T)
-hist(prediction_rasterm5)
+title('Collared')
 
-prediction_rasterm5_mask <- terra::mask(prediction_rasterm5, AmistOsa, inverse=F)
-plot(prediction_rasterm5_mask, main=focal_sp, range=c(0,0.9))
+plot(curassow_occu, axes=F, box=T, range=scalerange)
 plot(AmistOsa, add=T)
+title('Curassow')
 
-prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5, natlparks_dissolved, inverse=T)
-prediction_rasterm5_unNP <- terra::mask(prediction_rasterm5, AmistOsa, inverse=F)
-plot(prediction_rasterm5_unNP)
-
-crossVal(m5, method='Kfold', folds=10)
-
-## compare predictions
-pred_comp <- data.frame(m3=pred_dat$Predicted, m4=pred_datm4$Predicted, m5=pred_datm5$Predicted)
-cor(pred_comp, method='pearson')
-cor(pred_comp, method='spearman')
+plot(paca_occu, axes=F, box=T, range=scalerange)
+plot(AmistOsa, add=T)
+title('Paca')
+dev.off()
 
 #### Get cameras per protected area ####
-cameras_pts <- terra::vect(locs, geom=c('longitude','latitude'), crs="EPSG:4326", keepgeom=T)
+locs2 <- subset(locs, !(placename=='MS#117'))
+cameras_pts <- terra::vect(locs2, geom=c('longitude','latitude'), crs="EPSG:4326", keepgeom=T)
 cameras_pts <- terra::project(cameras_pts, "EPSG:31971")
 plot(AmistOsa)
 plot(cameras_pts, add=T, col='orange')
