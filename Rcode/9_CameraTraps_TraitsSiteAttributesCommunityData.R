@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 2-13-24: rerun with full camera trap dataset
+# updated: 2-16-24: analyze capture rates vs. current and conductance
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -68,6 +68,10 @@ current_flow_80th <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked_80th
 protected_areas <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa.shp")
 protected_areas_dissolved <- terra::aggregate(protected_areas, dissolve=T)
 
+natlparks <- subset(protected_areas, protected_areas$NAME %in% c('Piedras Blancas','Corcovado','La Amistad',
+                                                                 'Internacional La Amistad','Talamanca Range-La Amistad Reserves / La Amistad National Park'))
+natlparks_dissolved <- terra::aggregate(natlparks)
+
 # top5 LCP
 #top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5.shp")
 top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_top5_1000mbuff.shp")
@@ -102,8 +106,8 @@ tmp <- tmp %>% rename(
 
 sp_summary <- left_join(species, tmp, by='sp')
 
-sp_summary %>% kbl() %>% scroll_box(height = "200px") %>%
-  kable_paper("striped", full_width = F)
+#sp_summary %>% kbl() %>% scroll_box(height = "200px") %>%
+#  kable_paper("striped", full_width = F)
 
 # Address taxonomic mismatches and NAs from joining
 sp_summary[sp_summary$sp=="Herpailurus.yagouaroundi", c("mass_g", "act_noct","act_crep","act_diur")] <- 
@@ -302,6 +306,191 @@ m <- leaflet() %>%
                    fillOpacity=0.6) 
 m
 
+## 8.5.X: analyze capture rates in relation to current
+# here, with capture rate = number of detections (for a given species)/number of camera days
+capped <- total_obs[,c('placename','days','Crax.rubra','Cuniculus.paca',
+                       'Panthera.onca','Pecari.tajacu','Puma.concolor',
+                       'Tapirus.bairdii','Tayassu.pecari')]
+names(capped) <- c('placename','days','curassow','paca','jaguar','collared',
+                   'puma','tapir','WLP')
+
+# calculate capture rates for each species
+capped$curassow_rate <- capped$curassow/capped$days
+capped$paca_rate <- capped$paca/capped$days
+capped$jaguar_rate <- capped$jaguar/capped$days
+capped$collared_rate <- capped$collared/capped$days
+capped$puma_rate <- capped$puma/capped$days
+capped$tapir_rate <- capped$tapir/capped$days
+capped$WLP_rate <- capped$WLP/capped$days
+
+# bring in current data (merge will fail if not already created cameras_merger)
+capped <- merge(capped, cameras_merger[,c('placename','mean_current','Protected','natlpark')], by='placename')
+
+## First analyze all cameras
+# get correlation matrix
+library(Hmisc)
+test <- rcorr(as.matrix(capped[,c(10:17)]), type='spearman')[1]
+test$r[,8]
+
+library(reshape2)
+capped_melted <- capped[,c(10:17)]
+capped_melted <- melt(capped_melted, id.vars='mean_current',
+                      measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
+                                     'collared_rate','puma_rate','tapir_rate',
+                                     'WLP_rate'))
+names(capped_melted) <- c('mean_current','species','capture_rate')
+
+levels(capped_melted$species) <- list(curassow  = "curassow_rate", 
+                                      paca = "paca_rate",
+                                      jaguar = "jaguar_rate",
+                                      collared = "collared_rate",
+                                      puma = "puma_rate",
+                                      tapir = "tapir_rate",
+                                      WLP = "WLP_rate")
+
+ggplot(capped_melted, aes(mean_current, capture_rate)) + 
+  geom_smooth(method='lm', se=F) + 
+  theme_bw()+
+  facet_grid(species ~ .)
+
+## Now just cameras outside protected areas
+capped_unprotected <- subset(capped, Protected=='No')
+rcorr(as.matrix(capped_unprotected[,c(10:17)]), type='spearman')
+test <- rcorr(as.matrix(capped_unprotected[,c(10:17)]), type='spearman')[1]
+test$r[,8]
+
+capped_unprotected_melted <- capped_unprotected[,c(10:17)]
+capped_unprotected_melted <- melt(capped_unprotected_melted, id.vars='mean_current',
+                                  measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
+                                                 'collared_rate','puma_rate','tapir_rate',
+                                                 'WLP_rate'))
+names(capped_unprotected_melted) <- c('mean_current','species','capture_rate')
+
+levels(capped_unprotected_melted$species) <- list(curassow  = "curassow_rate", 
+                                                  paca = "paca_rate",
+                                                  jaguar = "jaguar_rate",
+                                                  collared = "collared_rate",
+                                                  puma = "puma_rate",
+                                                  tapir = "tapir_rate",
+                                                  WLP = "WLP_rate")
+
+ggplot(capped_unprotected_melted, aes(mean_current, capture_rate)) + 
+  geom_smooth(method='lm', se=F) + 
+  theme_bw()+
+  facet_grid(species ~ .)
+
+
+## Now just cameras outside natlparks
+capped_unnatlpark <- subset(capped, natlpark=='No')
+rcorr(as.matrix(capped_unnatlpark[,c(10:17)]), type='spearman')
+test <- rcorr(as.matrix(capped_unnatlpark[,c(10:17)]), type='spearman')[1]
+test$r[,8]
+
+capped_unnatlpark_melted <- capped_unnatlpark[,c(10:17)]
+capped_unnatlpark_melted <- melt(capped_unnatlpark_melted, id.vars='mean_current',
+                                 measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
+                                                'collared_rate','puma_rate','tapir_rate',
+                                                'WLP_rate'))
+names(capped_unnatlpark_melted) <- c('mean_current','species','capture_rate')
+
+levels(capped_unnatlpark_melted$species) <- list(curassow  = "curassow_rate", 
+                                                 paca = "paca_rate",
+                                                 jaguar = "jaguar_rate",
+                                                 collared = "collared_rate",
+                                                 puma = "puma_rate",
+                                                 tapir = "tapir_rate",
+                                                 WLP = "WLP_rate")
+
+ggplot(capped_unnatlpark_melted, aes(mean_current, capture_rate)) + 
+  geom_smooth(method='lm', se=F) + 
+  theme_bw()+
+  facet_grid(species ~ .)
+
+## let's try this again with conductance instead of current
+# bring in conductance data (merge will fail if not already created cameras_merger
+capped2 <- capped
+capped2 <- merge(capped2, cameras_merger[,c('placename','mean_conductance','Protected','natlpark')], by='placename')
+
+## First analyze all cameras
+# get correlation matrix
+test <- rcorr(as.matrix(capped2[,c(10:17)]), type='spearman')[1]
+test$r[,8]
+
+capped2_melted <- capped2[,c(10:17)]
+capped2_melted <- melt(capped2_melted, id.vars='mean_conductance',
+                       measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
+                                      'collared_rate','puma_rate','tapir_rate',
+                                      'WLP_rate'))
+names(capped2_melted) <- c('mean_conductance','species','capture_rate')
+
+levels(capped2_melted$species) <- list(curassow  = "curassow_rate", 
+                                       paca = "paca_rate",
+                                       jaguar = "jaguar_rate",
+                                       collared = "collared_rate",
+                                       puma = "puma_rate",
+                                       tapir = "tapir_rate",
+                                       WLP = "WLP_rate")
+
+ggplot(capped2_melted, aes(mean_conductance, capture_rate)) + 
+  geom_smooth(method='lm', se=F, color='gold') + 
+  theme_bw()+
+  facet_grid(species ~ .)
+
+## Now just cameras outside protected areas
+capped2_unprotected <- subset(capped2, Protected=='No')
+rcorr(as.matrix(capped2_unprotected[,c(10:17)]), type='spearman')
+test <- rcorr(as.matrix(capped2_unprotected[,c(10:17)]), type='spearman')[1]
+test$r[,8]
+
+capped2_unprotected_melted <- capped2_unprotected[,c(10:17)]
+capped2_unprotected_melted <- melt(capped2_unprotected_melted, id.vars='mean_conductance',
+                                   measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
+                                                  'collared_rate','puma_rate','tapir_rate',
+                                                  'WLP_rate'))
+names(capped2_unprotected_melted) <- c('mean_conductance','species','capture_rate')
+
+levels(capped2_unprotected_melted$species) <- list(curassow  = "curassow_rate", 
+                                                   paca = "paca_rate",
+                                                   jaguar = "jaguar_rate",
+                                                   collared = "collared_rate",
+                                                   puma = "puma_rate",
+                                                   tapir = "tapir_rate",
+                                                   WLP = "WLP_rate")
+
+ggplot(capped2_unprotected_melted, aes(mean_conductance, capture_rate)) + 
+  geom_smooth(method='lm', se=F, color='gold') + 
+  theme_bw()+
+  facet_grid(species ~ .)
+
+
+## Now just cameras outside natlparks
+capped2_unnatlpark <- subset(capped2, natlpark=='No')
+rcorr(as.matrix(capped2_unnatlpark[,c(10:17)]), type='spearman')
+test <- rcorr(as.matrix(capped2_unnatlpark[,c(10:17)]), type='spearman')[1]
+test$r[,8]
+
+capped2_unnatlpark_melted <- capped2_unnatlpark[,c(10:17)]
+capped2_unnatlpark_melted <- melt(capped2_unnatlpark_melted, id.vars='mean_conductance',
+                                  measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
+                                                 'collared_rate','puma_rate','tapir_rate',
+                                                 'WLP_rate'))
+names(capped2_unnatlpark_melted) <- c('mean_conductance','species','capture_rate')
+
+levels(capped2_unnatlpark_melted$species) <- list(curassow  = "curassow_rate", 
+                                                  paca = "paca_rate",
+                                                  jaguar = "jaguar_rate",
+                                                  collared = "collared_rate",
+                                                  puma = "puma_rate",
+                                                  tapir = "tapir_rate",
+                                                  WLP = "WLP_rate")
+
+ggplot(capped2_unnatlpark_melted, aes(mean_conductance, capture_rate)) + 
+  geom_smooth(method='lm', se=F, color='gold') + 
+  theme_bw()+
+  facet_grid(species ~ .)
+##
+
+
 ## 8.6: Species co-occurrences
 # Reset the plot parameters
 par(mfrow=c(1,1))
@@ -369,7 +558,6 @@ boxplot(total_detections ~ Protected, happy_data, las=1)
 
 boxplot(Richness ~ natlpark, happy_data, las=1)
 boxplot(total_detections ~ natlpark, happy_data, las=1)
-
 
 # species_names <- colnames(happy_data[,c(3:31)])
 # for (i in 1:length(species_names)) {
@@ -752,10 +940,10 @@ allspecies_circuit$Species_fac <- factor(allspecies_circuit$Species_fac,
 
 # jpeg(filename='Figures/AmistOsa_conductance_current_boxplots.jpeg', height=5, width=7, units='in', res=300)
 #   par(mfrow=c(2,1), mai = c(0.5, 1, 0.5, 0.1)) #bot, left, top, right
-#   boxplot(conductance ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
+#   boxplot(conductance ~ Species_fac, data=allspecies_circuit, las=1, xlab='',
 #         ylab='Conductance', cex.axis=0.75)
 #   title('A) Conductance', adj=0)
-#   boxplot(current ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
+#   boxplot(current ~ Species_fac, data=allspecies_circuit, las=1, xlab='',
 #         ylab='Current', cex.axis=0.75)
 #   title('B) Current', adj=0)
 # dev.off()
@@ -812,7 +1000,7 @@ high_current_unprotected_paca
 # boxplot(conductance ~ Species_fac, data=allspecies_circuit, las=1, xlab='',
 #         ylab='Conductance', cex.axis=0.75)
 # title('A) Conductance', adj=0)
-# boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=1, xlab='', 
+# boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=1, xlab='',
 #         ylab='log(Current)', cex.axis=0.75, ylim=c(-10,3))
 # title('B) Current', adj=0)
 # dev.off()
@@ -888,6 +1076,33 @@ detection_df$detections_highcurrent_protected_pct <- detection_df$detections_hig
 # export detection summary table
 #write.csv(detection_df, file="Data/spatial/CameraTraps/detection_summary.csv", row.names=F)
 
+## How many cameras in our various areas?
+PA_cameras <- terra::intersect(cameras_pts, protected_areas_dissolved)
+PA_cameras
+length(unique(PA_cameras$placename))
+
+NP_cameras <- terra::intersect(cameras_pts, natlparks_dissolved)
+NP_cameras
+length(unique(NP_cameras$placename))
+
+HC_unprotected_cameras <- terra::intersect(cameras_pts, current_flow_80th_unprotected_polygons)
+HC_unprotected_cameras
+length(unique(HC_unprotected_cameras$placename))
+
+LCP_cameras <- terra::intersect(cameras_pts, top5_LCP_dissolved)
+LCP_cameras
+length(unique(LCP_cameras$placename))
+
+protected_LCPs_cameras #already calculated above
+length(unique(protected_LCPs_cameras$placename))
+
+# number of unprotected LCP cameras
+length(unique(LCP_cameras$placename)) - length(unique(protected_LCPs_cameras$placename))
+
+SINAC_bc_cameras <- terra::intersect(cameras_pts, SINAC_bc)
+SINAC_bc_cameras
+length(unique(SINAC_bc_cameras$placename))
+
 ## Try out some visuals
 # with total number of detections
 detection_only_df <- detection_df[,c(1,2,4,11,15,23)]
@@ -944,61 +1159,6 @@ jpeg(filename='Figures/AmistOsa_detection_barplots.jpeg', height=5, width=7, uni
    abs_plot
 dev.off()
 
-# boxplot(current ~ Species_fac, data=allspecies_circuit, las=2, xlab='')
-#boxplot(current ~ Species_fac, data=allspecies_circuit, las=2, xlab='', ylim=c(0,1.5))
-# boxplot(log(current) ~ Species_fac, data=allspecies_circuit, las=2, xlab='')
-
-## Arguably, we are more interested in movement/movement potential through unprotected areas
-
-# par(mfrow=c(2,4), mai = c(0.1, 0.1, 0.1, 0.1))
-# #plot(current_flow_80th_unprotected, col='royalblue', legend=F, main='tapir')
-# plot(AmistOsa, legend=F, main='tapir')
-# plot(protected_areas_dissolved, add=T, col='forestgreen')
-# plot(SINAC_bc, add=T, col='gold')
-# plot(top5_LCP, col='dodgerblue', add=T)
-# plot(tapir_pts, add=T)
-# 
-# #plot(current_flow_80th_unprotected, col='royalblue')
-# plot(AmistOsa, legend=F, main='jaguar')
-# plot(protected_areas_dissolved, add=T, col='forestgreen')
-# plot(SINAC_bc, add=T, col='gold')
-# plot(top5_LCP, col='dodgerblue', add=T)
-# plot(jaguar_pts, add=T)
-# 
-# #plot(current_flow_80th_unprotected, col='royalblue')
-# plot(AmistOsa, legend=F, main='WLP')
-# plot(protected_areas_dissolved, add=T, col='forestgreen')
-# plot(SINAC_bc, add=T, col='gold')
-# plot(top5_LCP, col='dodgerblue', add=T)
-# plot(whitelipped_pts, add=T)
-# 
-# #plot(current_flow_80th_unprotected, col='royalblue')
-# plot(AmistOsa, legend=F, main='puma')
-# plot(protected_areas_dissolved, add=T, col='forestgreen')
-# plot(SINAC_bc, add=T, col='gold')
-# plot(top5_LCP, col='dodgerblue', add=T)
-# plot(puma_pts, add=T)
-# 
-# #plot(current_flow_80th_unprotected, col='royalblue')
-# plot(AmistOsa, legend=F, main='collared')
-# plot(protected_areas_dissolved, add=T, col='forestgreen')
-# plot(SINAC_bc, add=T, col='gold')
-# plot(top5_LCP, col='dodgerblue', add=T)
-# plot(collared_pts, add=T)
-# 
-# #plot(current_flow_80th_unprotected, col='royalblue')
-# plot(AmistOsa, legend=F, main='curassow')
-# plot(protected_areas_dissolved, add=T, col='forestgreen')
-# plot(SINAC_bc, add=T, col='gold')
-# plot(top5_LCP, col='dodgerblue', add=T)
-# plot(curassow_pts, add=T)
-# 
-# #plot(current_flow_80th_unprotected, col='royalblue')
-# plot(AmistOsa, legend=F, main='paca')
-# plot(protected_areas_dissolved, add=T, col='forestgreen')
-# plot(SINAC_bc, add=T, col='gold')
-# plot(top5_LCP, col='dodgerblue', add=T)
-# plot(paca_pts, add=T)
 
 ## 9.3: Sampling unit based accumulation curves
 inc_dat <- total_obs %>% 
@@ -1165,232 +1325,9 @@ ggplot(cameras_mapping) +
   geom_spatvector(aes(color=Richness))+
   theme_classic()
 
-
-#### OLD Analysis of detection data ####
-# length(unique(cameras$deployment_id))
-# images[images == ""] <- NA  #convert blanks to NA
-# 
-# # get rid of rows with "remove" (intended for removal, but couldn't be once uploaded)
-# images <- images %>% 
-#   dplyr::filter(!grepl('remove', deployment_id))
-# 
-# # get species as genus - species
-# images$SpeciesName <- paste0(images$genus, ' ', images$species)
-# 
-# # remove rows that just say "Animal" in common_name column
-# images <- images %>% 
-#   dplyr::filter(!grepl('Animal', common_name))
-# 
-# # what about duplicate images?
-# # seems that duplicate images are OK - they contain muliple species detected, so they have multiple rows
-# length(unique(images$image_id))
-# 
-# # deal with dates
-# images$Date <- as.Date(images$timestamp)
-# images$Year <- year(images$Date)
-# images$Month <- month(images$Date, label=T, abbr=T)
-# 
-# # test <- images %>%
-# #   filter(duplicated(.[["image_id"]]))
-# # dd <- subset(images, filename=='07020174.JPG')
-# # zz <- subset(images, filename=='07020087.JPG')
-# # xx <- subset(images, filename=='07020130.JPG')
-# 
-# ## Summarize detection data per camera site
-# cam_summary <- images %>%
-#   dplyr::group_by(deployment_id) %>%
-#   dplyr::summarize(nDetections = n(),
-#                    nSpecies = n_distinct(species),
-#                    nGenus = n_distinct(genus),
-#                    nFamily = n_distinct(family),
-#                    nOrder = n_distinct(order),
-#                    nClass = n_distinct(class)) %>%
-#   as.data.frame()
-# summary(cam_summary)
-# 
-# hist(cam_summary$nDetections, main='Total detections', xlab='Number of detections')
-# hist(cam_summary$nSpecies, main='Species', xlab='Number of species')
-# hist(cam_summary$nGenus, main='Genera', xlab='Number of genera')
-# hist(cam_summary$nFamily, main='Families', xlab='Number of familes')
-# hist(cam_summary$nOrder, main='Orders', xlab='Number of orders')
-# hist(cam_summary$nClass, main='Classes', xlab='Number of classes')
-# 
-# ## mammals by site
-# mammal_summary <- subset(images, class=='Mammalia') %>%
-#   dplyr::group_by(deployment_id) %>%
-#   dplyr::summarize(nMammalSpecies = n_distinct(species),
-#                    nMammalGenus = n_distinct(genus),
-#                    nMammalFamily = n_distinct(family),
-#                    nMammalOrder = n_distinct(order)) %>%
-#   as.data.frame()
-# summary(mammal_summary)
-# 
-# ## birds by site
-# bird_summary <- subset(images, class=='Aves') %>%
-#   dplyr::group_by(deployment_id) %>%
-#   dplyr::summarize(nBirdSpecies = n_distinct(species),
-#                    nBirdGenus = n_distinct(genus),
-#                    nBirdFamily = n_distinct(family),
-#                    nBirdOrder = n_distinct(order)) %>%
-#   as.data.frame()
-# summary(bird_summary)
-# 
-# ## reptiles by site
-# reptile_summary <- subset(images, class=='Reptilia') %>%
-#   dplyr::group_by(deployment_id) %>%
-#   dplyr::summarize(nReptileSpecies = n_distinct(species),
-#                    nReptileGenus = n_distinct(genus),
-#                    nReptileFamily = n_distinct(family),
-#                    nReptileOrder = n_distinct(order)) %>%
-#   as.data.frame()
-# summary(reptile_summary)
-# 
-# ## Amphibians by site
-# amphibian_summary <- subset(images, class=='Amphibia') %>%
-#   dplyr::group_by(deployment_id) %>%
-#   dplyr::summarize(nAmphibianSpecies = n_distinct(species),
-#                    nAmphibianGenus = n_distinct(genus),
-#                    nAmphibianFamily = n_distinct(family),
-#                    nAmphibianOrder = n_distinct(order)) %>%
-#   as.data.frame()
-# summary(amphibian_summary)
-# 
-# ## Amphibians by site
-# amphibian_summary <- subset(images, class=='Reptilia') %>%
-#   dplyr::group_by(deployment_id) %>%
-#   dplyr::summarize(nAmphibianSpecies = n_distinct(species),
-#                    nAmphibianGenus = n_distinct(genus),
-#                    nAmphibianFamily = n_distinct(family),
-#                    nAmphibianOrder = n_distinct(order)) %>%
-#   as.data.frame()
-# summary(amphibian_summary)
-# 
-# class_list <- list(mammal_summary, bird_summary, reptile_summary, amphibian_summary, insect_summary)
-# class_summary <- Reduce(function(x, y) merge(x, y, all=T), class_list)
-# 
-# # Merge camera site attributes to camera summaries by site
-# cameras_attributes <- merge(cameras_merger, cam_summary, by='deployment_id', all=F)
-# cameras_attributes <- merge(cameras_attributes, class_summary, by='deployment_id', all=T)
-# 
-# plot(nSpecies ~ mean_current, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nSpecies, cameras_attributes$mean_current,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nSpecies ~ pct_forest, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nSpecies, cameras_attributes$pct_forest,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nSpecies ~ elevation, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nSpecies, cameras_attributes$elevation,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nSpecies ~ canopy_height, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nSpecies, cameras_attributes$canopy_height,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nSpecies ~ pct_ag, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nSpecies, cameras_attributes$pct_ag,
-#          use='pairwise.complete.obs', method='spearman')
-# 
-# plot(nMammalSpecies ~ mean_current, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$mean_current,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nMammalSpecies ~ pct_forest, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$pct_forest,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nMammalSpecies ~ elevation, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$elevation,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nMammalSpecies ~ canopy_height, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$canopy_height,
-#          use='pairwise.complete.obs', method='spearman')
-# plot(nMammalSpecies ~ pct_ag, data=cameras_attributes, pch=20)
-# cor.test(cameras_attributes$nMammalSpecies, cameras_attributes$pct_ag,
-#          use='pairwise.complete.obs', method='spearman')
-# 
-# # Map species data
-# # lonn <- cameras_attributes$longitude
-# # latt <- cameras_attributes$latitude
-# # lonnlatt <- cbind(lonn, latt)
-# # 
-# # cameras_attributes_pts <- terra::vect(lonnlatt, crs=crdref)
-# # cameras_attributes_pts <- terra::project(cameras_attributes_pts, "EPSG:31971")
-# 
-# cameras_pts$deployment_id <- cameras$deployment_id
-# cameras_attributes_pts <- merge(cameras_pts, cameras_attributes, by='deployment_id', all=F)
-# 
-# plot(AmistOsa)
-# plot(cameras_attributes_pts, "nSpecies", col=heat.colors(5, rev=T), add=T)
-# 
-# ## Analyze detections by class (i.e., mammals, birds)
-# detections_by_class <- images %>% 
-#   dplyr::count(class) %>%
-#   as.data.frame()
-# detections_by_class$pct <- (detections_by_class$n/sum(detections_by_class$n))*100
-# pie_data <- detections_by_class %>%
-#   arrange(desc(n)) %>%
-#   mutate(lab.ypos = cumsum(pct) - 0.5*pct)
-# pie_data
-# pie_data$class_fac <- as.factor(pie_data$class)
-# pie_data$class_fac <- factor(pie_data$class_fac, levels=c('Mammalia','Aves','No CV Result','Amphibia','Reptilia','Insecta'))
-# roundedpct <- round(pie_data$pct, 1)
-# mylabs <- paste0(pie_data$class_fac, ' (', roundedpct, '%)')
-# mycols <- c("forestgreen","darkgoldenrod1","royalblue",
-#             'purple','gray80','firebrick')
-# 
-# ggplot(pie_data, aes(x = "", y = pct, fill = class_fac)) +
-#   geom_bar(width = 1, stat = "identity", color = "white") +
-#   coord_polar("y", start = 0)+
-#   scale_fill_manual(values = mycols, labels=mylabs, name='Class') +
-#   ggtitle("Detections by class") +
-#   theme_void()+
-#   theme(plot.title = element_text(hjust = 0.8))
-# 
-# 
-# # trying to produce map, but may ultimately be better in Q
-# ggplot(cameras_attributes_pts) +
-#   geom_spatvector(data=AmistOsa, fill='white')+
-#   geom_spatvector(data=protected_areas)+
-#   geom_spatvector(data=top5_LCP)+
-#   geom_spatvector(aes(color=nSpecies))+
-#   theme_classic()
-# 
-# ggplot(cameras_attributes_pts) +
-#   geom_spatvector(data=AmistOsa, fill='white')+
-#   geom_spatvector(data=protected_areas)+
-#   geom_spatvector(data=top5_LCP)+
-#   geom_spatvector(aes(color=nMammalSpecies))+
-#   theme_classic()
-# 
-# ggplot(cameras_attributes_pts) +
-#   geom_spatvector(data=AmistOsa, fill='white')+
-#   geom_spatvector(data=protected_areas)+
-#   geom_spatvector(data=top5_LCP)+
-#   geom_spatvector(aes(color=nBirdSpecies))+
-#   theme_classic()
-# 
-# ## Where are the tapirs??
-# bio_data <- images[,c(2,9:14,28)]
-# tapir <- subset(bio_data, SpeciesName =='Tapirus bairdii')
-# 
-# tapir_bySite <- tapir %>%
-#   dplyr::group_by(deployment_id) %>%
-#   dplyr::summarize(nTapir = n()) %>%
-#   as.data.frame()
-# 
-# tapir_pts <- merge(cameras_attributes_pts, tapir_bySite, by='deployment_id', all=F)
-# 
-# ggplot(tapir_pts) +
-#   geom_spatvector(data=AmistOsa, fill='white')+
-#   geom_spatvector(data=protected_areas)+
-#   geom_spatvector(data=top5_LCP)+
-#   geom_spatvector(aes(color=nTapir))+
-#   theme_classic()+
-#   ggtitle('Tapir')
-
-
 #### Extract some basic data from camera trap locations ####
 cameras_elevation <- terra::extract(DEM, cameras_pts, na.rm=T)
 names(cameras_elevation) <- c('ID','elevation_m')
-
-# cameras_canopy <- terra::extract(canopy, cameras_pts, na.rm=T)
-# names(cameras_canopy) <- c('ID','canopy_height_m')
 
 ## create buffer for % forest (or other stuff)
 buff_dist <- 500 #meters
@@ -1497,9 +1434,9 @@ protected_cameras_df <- protected_cameras_df[,c('placename','Protected')]
 protected_cameras_df <- dplyr::distinct(protected_cameras_df)# I guess some buffers may overlap with a PA border, so were duplicated. Overlap is good enough for our purposes
 
 # Located in national park?
-natlparks <- subset(protected_areas, protected_areas$NAME %in% c('Piedras Blancas','Corcovado','La Amistad',
-                                                                 'Internacional La Amistad','Talamanca Range-La Amistad Reserves / La Amistad National Park'))
-natlparks_dissolved <- terra::aggregate(natlparks)
+# natlparks <- subset(protected_areas, protected_areas$NAME %in% c('Piedras Blancas','Corcovado','La Amistad',
+#                                                                  'Internacional La Amistad','Talamanca Range-La Amistad Reserves / La Amistad National Park'))
+# natlparks_dissolved <- terra::aggregate(natlparks)
 plot(AmistOsa)
 #plot(natlparks, add=T, col='blue')
 plot(natlparks_dissolved, add=T, col='blue')
@@ -1604,7 +1541,7 @@ cameras_merger$pct_forest_edge <- cameras_merger$pct_forest - cameras_merger$pct
 candidate_predictors <- cameras_merger[,c('elevation_m','pct_ag','pct_forest_core','pct_forest_edge',
                           'pct_protected','protected_area_dist_m','canopy_height_m',
                           'meanForestPatchArea','nForestPatches','forest_core_dist_m',
-                          'natlpark_dist_m', 'pct_natlpark')]
+                          'natlpark_dist_m', 'pct_natlpark','mean_conductance','mean_current')]
 M <- cor(candidate_predictors, method='spearman', use='pairwise.complete.obs')
 
 par(mfrow=c(1,1))

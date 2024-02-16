@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: habitat use and occupancy #########
 # Date: 1-3-24
-# updated: 1-31-24: new mega survey camera data
+# updated: 2-16-24: new synthetic results figure
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -15,6 +15,7 @@ if(length(new.packages)) install.packages(new.packages)
 lapply(list.of.packages, require, character.only = TRUE)
 
 library(terra)
+library(RColorBrewer)
 
 #### Input data ####
 setwd("C:/Users/immccull/Documents/AmistOsa")
@@ -22,6 +23,10 @@ total_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data
 sp_summary <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/species_list_traits.csv")
 locs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv") #calculated in CameraTraps_TraitsSiteAttributes script
 weekly_obs <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/combined_projects_30min_independent_weekly_observations.csv", header=T)
+
+# Current flow
+current_flow <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked.tif")
+current_flow_80th <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked_80thpctNEW.tif")
 
 #### Main program ####
 # Calculate capture rate (proxy for habitat use)
@@ -77,58 +82,55 @@ boxplot(mod_dat$Tapirus.bairdii~mod_dat$natlpark,
 #             main='Tapir') 
 
 #### Analyze influence of continuous predictor ####
-plot(mod_dat$Tapirus.bairdii~mod_dat$z.pct_forest,
-     las=1,
-     xlab="Percent forest",
-     ylab="Habitat use",
-     main='Tapir')
-
-## Basic linear model
-lm_tapir <- lm(Tapirus.bairdii ~ #z.protected_area_dist_m + 
-                 #z.forest_core_dist_m+
-                 #z.pct_ag+
-                 #z.elevation_m+
-                 #z.pct_forest_edge+
-                 #z.canopy_height_m + 
-                 z.natlpark_dist_m,
-                 #z.meanForestPatchArea, #this one seems to be the only signif one
-             data = mod_dat)
-summary(lm_tapir)
-
-lm_jaguar <- lm(Panthera.onca ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
-               data = mod_dat)
-summary(lm_jaguar)
-
-lm_wlp <- lm(Tayassu.pecari ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
-                data = mod_dat)
-summary(lm_wlp)
-
-lm_puma <- lm(Puma.concolor ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
-             data = mod_dat)
-summary(lm_puma)
-
-lm_collared <- lm(Pecari.tajacu ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
-             data = mod_dat)
-summary(lm_collared)
-
-lm_paca <- lm(Cuniculus.paca ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
-                  data = mod_dat)
-summary(lm_paca)
-
-lm_curassow <- lm(Crax.rubra ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
-              data = mod_dat)
-summary(lm_curassow)
-
+# plot(mod_dat$Tapirus.bairdii~mod_dat$z.pct_forest,
+#      las=1,
+#      xlab="Percent forest",
+#      ylab="Habitat use",
+#      main='Tapir')
 # 
+# ## Basic linear model
+# lm_tapir <- lm(Tapirus.bairdii ~ #z.protected_area_dist_m + 
+#                  #z.forest_core_dist_m+
+#                  #z.pct_ag+
+#                  #z.elevation_m+
+#                  #z.pct_forest_edge+
+#                  #z.canopy_height_m + 
+#                  z.natlpark_dist_m,
+#                  #z.meanForestPatchArea, #this one seems to be the only signif one
+#              data = mod_dat)
+# summary(lm_tapir)
 # 
+# lm_jaguar <- lm(Panthera.onca ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
+#                data = mod_dat)
+# summary(lm_jaguar)
 # 
-# ## Visualize predictions
-effect_plot(lm_tapir,                  # The model object
-            pred = z.natlpark_dist_m,  # The variable you want to predict
-            interval = TRUE,         # Whether you want confidence intervals (default = 0.95)
-            partial.residuals = T,   # Show the residual variation -after accounting for fixed effects
-            y.label = "Habitat use", # Change the y axis label
-            main='Tapir')
+# lm_wlp <- lm(Tayassu.pecari ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
+#                 data = mod_dat)
+# summary(lm_wlp)
+# 
+# lm_puma <- lm(Puma.concolor ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
+#              data = mod_dat)
+# summary(lm_puma)
+# 
+# lm_collared <- lm(Pecari.tajacu ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
+#              data = mod_dat)
+# summary(lm_collared)
+# 
+# lm_paca <- lm(Cuniculus.paca ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
+#                   data = mod_dat)
+# summary(lm_paca)
+# 
+# lm_curassow <- lm(Crax.rubra ~ z.protected_area_dist_m + z.canopy_height_m + z.meanForestPatchArea,
+#               data = mod_dat)
+# summary(lm_curassow)
+# 
+# # ## Visualize predictions
+# effect_plot(lm_tapir,                  # The model object
+#             pred = z.natlpark_dist_m,  # The variable you want to predict
+#             interval = TRUE,         # Whether you want confidence intervals (default = 0.95)
+#             partial.residuals = T,   # Show the residual variation -after accounting for fixed effects
+#             y.label = "Habitat use", # Change the y axis label
+#             main='Tapir')
 
 #### Model comparisons ####
 # # Create a "null model" something without any predictors in at all, to compare these models to:
@@ -157,7 +159,7 @@ focal_sp <- "Tapirus.bairdii"
 #focal_sp <- "Puma.concolor"
 #focal_sp <- "Crax.rubra"
 #focal_sp <- "Cuniculus.paca"
-#focal_sp <- "Pecari.tajacu"
+#focal_sp <- "Pecari.tajacu" #Dicotyles tajacu
 
 # subset to 2018 (or not)
 #tmp_week <- weekly_obs[substr(weekly_obs$date,1,4)==2018,]
@@ -207,7 +209,8 @@ table(locs$placename == row.names(y_mat))
 # y_mat <- test_mat
 
 ## However, that camera only has 1 day of deployment, so can just remove entirely from analysis
-z_locs <- subset(z_locs, !(placename=='MS#117'))
+# this site has now been removed in an earlier part of the analysis due to its short deployment window
+#z_locs <- subset(z_locs, !(placename=='MS#117'))
 
 # Build an unmarkedFramOccu
 un_dat <- unmarkedFrameOccu(y = y_mat, # your occupancy data
@@ -248,8 +251,8 @@ m3 <- occu(formula = ~1 # detection formula first
              #z.protected_area_dist_m+ 
              z.natlpark_dist_m+
              #z.pct_forest_edge+ #highly correlated with pct_forest_core
-             z.meanForestPatchArea,#+
-            #z.canopy_height_m, #highly correlated with pct forest core, # occupancy formula second,
+             z.meanForestPatchArea+
+             z.canopy_height_m, #highly correlated with pct forest core, # occupancy formula second,
            #method=optim(par=c(-5,5), maxit=10000), #don't know what to set for initial conditions (par) and function (fn)
            data = un_dat)
 summary(m3)
@@ -316,7 +319,6 @@ new_dat <- predict(m3, type="state", newdata = new_dat, appendData=TRUE)
 #   coord_cartesian(ylim = c(0,1))
 # p2
 
-
 #### Spatial predictions of occupancy models ####
 # Need to run chunk "Create predictor surfaces for occupancy probability" first
 # for basic model (m3)
@@ -355,12 +357,37 @@ prediction_rasterm3_mask <- terra::mask(prediction_rasterm3, AmistOsa, inverse=F
 plot(prediction_rasterm3_mask, main=focal_sp, range=c(0,1))
 plot(AmistOsa, add=T)
 
+## make masks of cells beyond the range of the calibration data
+#locs2 <- subset(locs, !(placename=='MS#117'))
+natlpark_dist_m_range <- range(locs$natlpark_dist_m)
+natlpark_dist_m_mask <- terra::ifel(natlpark_distance_rast < natlpark_dist_m_range[1] | natlpark_distance_rast > natlpark_dist_m_range[2],
+                        1, #true
+                        NA) #false
+plot(natlpark_dist_m_mask, col='gray')
+plot(AmistOsa, add=T)
+
+# this variable actually is OK without a mask
+meanForestPatchArea_range <- range(locs2$meanForestPatchArea)
+meanForestPatchArea_mask <- terra::ifel(forest_patcharea_grid_rast < meanForestPatchArea_range[1] | forest_patcharea_grid_rast > meanForestPatchArea_range[2],
+                                    1, #true
+                                    NA) #false
+plot(meanForestPatchArea_mask, col='gray')
+plot(AmistOsa, add=T)
+
+# this variable is also OK without a mask
+canopy_height_m_range <- range(locs2$canopy_height_m) #can't have negative canopy values, ha
+canopy_height_m_mask <- terra::ifel(canopy_resampled < canopy_height_m_range[1] | canopy_resampled > canopy_height_m_range[2],
+                                        1, #true
+                                        NA) #false
+plot(canopy_height_m_mask, col='gray')
+plot(AmistOsa, add=T)
+
 occupancyname <- paste0("Data/spatial/occupancy_models/occupancy_model_" ,focal_sp,".tif")
 #terra::writeRaster(prediction_rasterm3_mask, filename=occupancyname, overwrite=T)
 
 modeloutput <- as.data.frame(summary(m3))
 modeloutput_name <- paste0("Data/spatial/occupancy_models/occupancy_model_summary" ,focal_sp,".csv")
-write.csv(modeloutput, modeloutput_name, row.names=T)
+#write.csv(modeloutput, modeloutput_name, row.names=T)
 
 #crossVal(m3, method='Kfold', folds=10)
 
@@ -738,40 +765,518 @@ collared_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Peca
 curassow_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Crax.rubra.tif")
 paca_occu <- terra::rast("Data/spatial/occupancy_models/occupancy_model_Cuniculus.paca.tif")
 
+library(tidyterra)
+axistest_size <- 8
+title_size <- 10
+
+# mask out areas outside calibration data range
+# only need for natl park distance (other variables fully within range)
+tapir_occu <- terra::mask(tapir_occu, natlpark_dist_m_mask, inverse=T)
+jaguar_occu <- terra::mask(jaguar_occu, natlpark_dist_m_mask, inverse=T)
+WLP_occu <- terra::mask(WLP_occu, natlpark_dist_m_mask, inverse=T)
+puma_occu <- terra::mask(puma_occu, natlpark_dist_m_mask, inverse=T)
+collared_occu <- terra::mask(collared_occu, natlpark_dist_m_mask, inverse=T)
+curassow_occu <- terra::mask(curassow_occu, natlpark_dist_m_mask, inverse=T)
+paca_occu <- terra::mask(paca_occu, natlpark_dist_m_mask, inverse=T)
+
+tapir_gg <- ggplot() +
+  geom_spatraster(data = tapir_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                      na.value='white', name='Occupancy')+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+  #                     na.value='white', name='Occupancy')+
+  #guides(fill = guide_legend(override.aes = list(size = 8), reverse=T))+
+  theme(legend.position=c('none'),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size, angle=70, hjust=1),
+        plot.margin=unit(c(0,0,-0.5,0), "cm"),
+        plot.title=element_text(size=title_size))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  ggtitle('A) Tapir')
+
+jaguar_gg <- ggplot() +
+  geom_spatraster(data = jaguar_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                      na.value='white', name='Occupancy')+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+  #                     na.value='white', name='Occupancy')+
+  #guides(fill = guide_legend(override.aes = list(size = 8), reverse=T))+
+  theme(legend.position=c('none'),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size, angle=70, hjust=1),
+        plot.margin=unit(c(0,0,-0.5,0), "cm"),
+        plot.title=element_text(size=title_size))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  ggtitle('B) Jaguar')
+
+WLP_gg <- ggplot() +
+  geom_spatraster(data = WLP_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                      na.value='white', name='Occupancy')+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+  #                     na.value='white', name='Occupancy')+
+  #guides(fill = guide_legend(override.aes = list(size = 8), reverse=T))+
+  theme(legend.position=c('none'),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size, angle=70, hjust=1),
+        plot.margin=unit(c(0,0,-0.5,0), "cm"),
+        plot.title=element_text(size=title_size))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  ggtitle('C) WLP')
+
+puma_gg <- ggplot() +
+  geom_spatraster(data = puma_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                      na.value='white', name='Occupancy')+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+  #                     na.value='white', name='Occupancy')+
+  #guides(fill = guide_legend(override.aes = list(size = 8), reverse=T))+
+  theme(legend.position=c('none'),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size, angle=70, hjust=1),
+        plot.margin=unit(c(0,0,-0.5,0), "cm"),
+        plot.title=element_text(size=title_size))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  ggtitle('D) Puma')
+
+#row 2
+collared_gg <- ggplot() +
+  geom_spatraster(data = collared_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                      na.value='white', name='Occupancy')+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+  #                     na.value='white', name='Occupancy')+
+  #guides(fill = guide_legend(override.aes = list(size = 8), reverse=T))+
+  theme(legend.position=c('none'),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size, angle=70, hjust=1),
+        plot.margin=unit(c(-0.5,0,0,0), "cm"),
+        plot.title=element_text(size=title_size))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  ggtitle('E) Collared')
+
+curassow_gg <- ggplot() +
+  geom_spatraster(data = curassow_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                     na.value='white', name='Occupancy')+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+   #                    na.value='white', name='Occupancy')+
+  #guides(fill = guide_legend(override.aes = list(size = 8), reverse=T))+
+  theme(legend.position=c('none'),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size, angle=70, hjust=1),
+        plot.margin=unit(c(-0.5,0,0,0), "cm"),
+        plot.title=element_text(size=title_size))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  ggtitle('F) Curassow')
+
+# Had been using this one to experiment
+# Hard to get a color palette that shows a lot of heterogeneity in all the plots
+paca_gg <- ggplot() +
+  geom_spatraster(data = paca_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                      na.value='white', name='Occupancy')+
+  #scale_fill_gradientn(limits=c(0,1), colors=brewer.pal(5, name='YlOrRd'), breaks=seq(0,1,0.1),
+  #                    na.value='white', name='Occupancy')+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+  #                    na.value='white', name='Occupancy')+
+  #guides(fill = guide_legend(override.aes = list(size = 8), reverse=T))+
+  theme(legend.position=c('none'),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size, angle=70, hjust=1),
+        plot.margin=unit(c(-0.5,0,0,0), "cm"),
+        plot.title=element_text(size=title_size))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  ggtitle('G) Paca')
+paca_gg
+
+# just made to extract legend; not plotted
+legendplot <- ggplot() +
+  geom_spatraster(data = paca_occu, aes(fill = Predicted), na.rm=T)+
+  theme_classic()+
+  scale_fill_gradient(limits=c(0,1), low='khaki',high='forestgreen', breaks=seq(0,1,0.1),
+                      na.value='white', name='Occupancy',
+                      labels=c('0%','','20%','','40%','','60%','','80%','','100%'))+
+  #scale_fill_gradient2(limits=c(0,1), low='khaki',mid='lightgreen', high='royalblue', breaks=seq(0,1,0.1),
+   #                    na.value='white', name='Occupancy',
+    #                   labels=c('0%','','20%','','40%','','60%','','80%','','100%'))+
+  #guides(fill = guide_legend(override.aes = list(size = 1), reverse=T))+
+  geom_spatvector(data=AmistOsa, fill=NA, color='black', linewidth=0.5)+
+  theme(plot.margin=unit(c(0,0,0,0), "cm"),
+        legend.position=c(0.5,0.65),
+        legend.title=element_text(size=title_size))+
+  ggtitle('G) Paca')
+legend <- cowplot::get_legend(legendplot)
+
 jpeg(filename='Figures/AmistOsa_occupancy_models.jpeg', height=5, width=7, units='in', res=300)
-par(mfrow=c(2,4), mai=c(1,1,1,1))
-scalerange <- c(0,0.8)
-plot(tapir_occu, axes=F, box=T, range=scalerange)
-plot(AmistOsa, add=T)
-title('Tapir') #use line argument to make closer to plot box
-
-plot(jaguar_occu, axes=F, box=T, range=scalerange)
-plot(AmistOsa, add=T)
-title('Jaguar')
-
-plot(WLP_occu, axes=F, box=T, range=scalerange)
-plot(AmistOsa, add=T)
-title('WLP')
-
-plot(puma_occu, axes=F, box=T, range=scalerange)
-plot(AmistOsa, add=T)
-title('Puma')
-
-plot(collared_occu, axes=F, box=T, range=scalerange)
-plot(AmistOsa, add=T)
-title('Collared')
-
-plot(curassow_occu, axes=F, box=T, range=scalerange)
-plot(AmistOsa, add=T)
-title('Curassow')
-
-plot(paca_occu, axes=F, box=T, range=scalerange)
-plot(AmistOsa, add=T)
-title('Paca')
+  grid.arrange(tapir_gg, jaguar_gg, WLP_gg, puma_gg,
+             collared_gg, curassow_gg, paca_gg, legend, nrow=2)
 dev.off()
 
+#### Compare predicted occupancy to current values ####
+set.seed(999)
+random1000 <- terra::spatSample(tapir_occu, size=1000, as.points=T, na.rm=T)
+plot(AmistOsa)
+plot(random1000, add=T)
+
+random1000_current <- terra::extract(current_flow, random1000)
+colnames(random1000_current) <- c('ID','current')
+
+random1000_tapir <- terra::extract(tapir_occu, random1000)
+colnames(random1000_tapir) <- c('ID','tapir')
+sum(is.na(random1000_tapir))
+
+random1000_jaguar <- terra::extract(jaguar_occu, random1000)
+colnames(random1000_jaguar) <- c('ID','jaguar')
+
+random1000_WLP <- terra::extract(WLP_occu, random1000)
+colnames(random1000_WLP) <- c('ID','WLP')
+
+random1000_puma <- terra::extract(puma_occu, random1000)
+colnames(random1000_puma) <- c('ID','puma')
+
+random1000_collared <- terra::extract(collared_occu, random1000)
+colnames(random1000_collared) <- c('ID','collared')
+
+random1000_curassow <- terra::extract(curassow_occu, random1000)
+colnames(random1000_curassow) <- c('ID','curassow')
+
+random1000_paca <- terra::extract(paca_occu, random1000)
+colnames(random1000_paca) <- c('ID','paca')
+
+df_list <- list(random1000_current, random1000_tapir, random1000_jaguar,
+                random1000_WLP, random1000_puma, random1000_collared,
+                random1000_curassow, random1000_paca)
+
+library(tidyverse)
+test_df <- df_list %>% 
+  reduce(left_join, by = "ID") %>%
+  as.data.frame()
+
+# Most of these are not normally distributed
+par(mfrow=c(2,4))
+hist(test_df$current, main='Current', xlab='')
+hist(test_df$tapir, main='Tapir', xlab='')
+hist(test_df$jaguar, main='Jaguar', xlab='')
+hist(test_df$WLP, main='WLP', xlab='')
+hist(test_df$puma, main='Puma', xlab='')
+hist(test_df$collared,main='Collared', xlab='')
+hist(test_df$curassow, main='Curassow', xlab='')
+hist(test_df$paca, main='Paca', xlab='')
+
+cor(test_df[,c(2:9)], method='spearman', use='pairwise.complete.obs')
+library(Hmisc)
+hmisc_mat <- rcorr(as.matrix(test_df[,c(2:9)]), type='spearman')
+hmisc_mat_r <- hmisc_mat[1]$r
+hmisc_mat_p <- hmisc_mat[3]$P
+
+# Try natural# Try natural# Try natural log transformation
+test_df$current_log <- log(test_df$current)
+test_df$tapir_log <- log(test_df$tapir)
+test_df$jaguar_log <- log(test_df$jaguar)
+test_df$WLP_log <- log(test_df$WLP)
+test_df$puma_log <- log(test_df$puma)
+test_df$collared_log <- log(test_df$collared)
+test_df$curassow_log <- log(test_df$curassow)
+test_df$paca_log <- log(test_df$paca)
+
+par(mfrow=c(2,4))
+hist(test_df$current_log, main='Current', xlab='')
+hist(test_df$tapir_log, main='Tapir', xlab='')
+hist(test_df$jaguar_log, main='Jaguar', xlab='')
+hist(test_df$WLP_log, main='WLP', xlab='')
+hist(test_df$puma_log, main='Puma', xlab='')
+hist(test_df$collared_log,main='Collared', xlab='')
+hist(test_df$curassow_log, main='Curassow', xlab='')
+hist(test_df$paca_log, main='Paca', xlab='')
+
+cor(test_df[,c(10:17)], method='spearman', use='pairwise.complete.obs')
+
+par(mfrow=c(1,1))
+plot(test_df$tapir ~ test_df$current, pch=20,
+     ylab='', xlab='Current', main='Tapir', las=1, xlim=c(0,2), ylim=c(0,1))
+plot(test_df$jaguar ~ test_df$current, pch=20,
+     ylab='', xlab='Current', main='Jaguar', las=1, xlim=c(0,2), ylim=c(0,1))
+plot(test_df$WLP ~ test_df$current, pch=20,
+     ylab='', xlab='Current', main='WLP', las=1, xlim=c(0,2), ylim=c(0,1))
+plot(test_df$puma ~ test_df$current, pch=20,
+     ylab='', xlab='Current', main='Puma', las=1, xlim=c(0,2), ylim=c(0,1))
+plot(test_df$collared ~ test_df$current, pch=20,
+     ylab='', xlab='Current', main='Collared', las=1, xlim=c(0,2), ylim=c(0,1))
+plot(test_df$curassow ~ test_df$current, pch=20,
+     ylab='', xlab='Current', main='Curassow', las=1, xlim=c(0,2), ylim=c(0,1))
+plot(test_df$paca ~ test_df$current, pch=20,
+     ylab='', xlab='Current', main='Paca', las=1, xlim=c(0,2), ylim=c(0,1))
+
+### Nicer plots
+# Individual plots for each species
+test_df_melted <- reshape2::melt(test_df[,c(3:9)])
+names(test_df_melted) <- c('Species','occupancy')
+current <- test_df[,2]
+test_df_melted$current <- rep(current, 7)
+
+plot_colors <- c('forestgreen','orange','dodgerblue','firebrick','turquoise','gray','khaki')
+ggplot(test_df_melted) +
+  geom_jitter(aes(occupancy,current, colour=Species)) + 
+  geom_smooth(aes(occupancy,current, colour=Species), method=lm, color='black',se=FALSE) +
+  facet_wrap(~Species, scales="free_x") +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black'),
+        axis.text.x=element_text(color='black', angle=70, hjust=1))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)
+
+## Multiple species on same plot
+# too many dots
+# ggplot(test_df) +
+#   geom_jitter(aes(tapir,current), colour="royalblue") + geom_smooth(aes(tapir,current), method=lm, se=F) +
+#   geom_jitter(aes(jaguar,current), colour="forestgreen") + geom_smooth(aes(jaguar,current), method=lm, se=F) +
+#   geom_jitter(aes(WLP,current), colour="turquoise") + geom_smooth(aes(WLP,current), method=lm, se=F) +
+#   geom_jitter(aes(puma,current), colour="gold") + geom_smooth(aes(puma,current), method=lm, se=F) +
+#   geom_jitter(aes(collared,current), colour="black") + geom_smooth(aes(collared,current), method=lm, se=F) +
+#   geom_jitter(aes(curassow,current), colour="orange") + geom_smooth(aes(curassow,current), method=lm, se=F) +
+#   geom_jitter(aes(paca,current), colour="firebrick") + geom_smooth(aes(paca,current), method=lm, se=F) +
+#   labs(x = "Occupancy probability", y = "Current")
+
+# I don't understand why trimming axes just truncates the regression lines
+# ggplot(test_df) + 
+#   geom_smooth(aes(x=current,y=tapir), method=lm, color=plot_colors[1], se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(x=current,y=jaguar), method=lm, color=plot_colors[2],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(x=current,y=WLP), method=lm, color=plot_colors[3],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(x=current,y=puma), method=lm, color=plot_colors[4],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(x=current,y=collared), method=lm, color=plot_colors[5],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(x=current,y=curassow), method=lm, color=plot_colors[6],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(x=current,y=paca), method=lm, color=plot_colors[7], se=F ,formula = 'y ~ x') +
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black'),
+#         axis.text.y=element_text(color='black'))+
+#   scale_y_continuous(limits=c(0,1), name='Occupancy probability')+
+#   scale_x_continuous(limit=c(0,1), name='Current')
+# 
+# ggplot(test_df) + 
+#   geom_smooth(aes(y=current,x=tapir), method=lm, color=plot_colors[1], se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(y=current,x=jaguar), method=lm, color=plot_colors[2],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(y=current,x=WLP), method=lm, color=plot_colors[3],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(y=current,x=puma), method=lm, color=plot_colors[4],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(y=current,x=collared), method=lm, color=plot_colors[5],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(y=current,x=curassow), method=lm, color=plot_colors[6],se=F, formula = 'y ~ x') +
+#   geom_smooth(aes(y=current,x=paca), method=lm, color=plot_colors[7], se=F ,formula = 'y ~ x') +
+#   theme_classic()+
+#   theme(axis.text.x=element_text(color='black'),
+#         axis.text.y=element_text(color='black'))+
+#   scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+#   scale_y_continuous(limit=c(0,1), name='Current')
+
+
+test_df_melted %>% 
+  #pivot_longer(cols=-Year, names_to="city", values_to="value") %>% 
+  ggplot(aes(y=occupancy, x=current, group=Species, color=Species)) +
+  #geom_point() +
+  geom_smooth(method='lm', se=F) +
+  theme_classic()+
+  scale_x_continuous(limits=c(0,1), name='Current')+
+  scale_y_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_color_manual(values = plot_colors)
+
+### Nicer multi-panel plot for paper:
+# individual scatter plots for each species
+# final panel has regression lines for all species
+title_size <- 10
+axistest_size <- 8
+annotate_size <- 3
+
+tapir_scatter <- ggplot(test_df, aes(x=tapir, y=current))+ 
+  geom_point(color=plot_colors[1])+
+  geom_smooth(method=lm, color='black',se=FALSE) +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)+
+  ggtitle('A) Tapir')+
+  annotate(geom="text", x=0.8, y=2, label=paste0("rho = ", round(hmisc_mat_r[2], 2)),
+           color="black", size=annotate_size)+
+  annotate(geom="text", x=0.8, y=1.8, label=paste0("p = ", round(hmisc_mat_p[2], 2)),
+           color="black", size=annotate_size)
+tapir_scatter
+
+
+jaguar_scatter <- ggplot(test_df, aes(x=jaguar, y=current))+ 
+  geom_point(color=plot_colors[2])+
+  geom_smooth(method=lm, color='black',se=FALSE) +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)+
+  ggtitle('B) Jaguar')+
+  annotate(geom="text", x=0.8, y=2, label=paste0("rho = ", round(hmisc_mat_r[3], 2)),
+           color="black", size=annotate_size)+
+  annotate(geom="text", x=0.8, y=1.8, label=paste0("p = ", round(hmisc_mat_p[3], 2)),
+           color="black", size=annotate_size)
+jaguar_scatter
+
+WLP_scatter <- ggplot(test_df, aes(x=WLP, y=current))+ 
+  geom_point(color=plot_colors[3])+
+  geom_smooth(method=lm, color='black',se=FALSE) +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)+
+  ggtitle('C) WLP')+
+  annotate(geom="text", x=0.8, y=2, label=paste0("rho = ", round(hmisc_mat_r[4], 2)),
+           color="black", size=annotate_size)+
+  annotate(geom="text", x=0.8, y=1.8, label=paste0("p = ", round(hmisc_mat_p[4], 2)),
+           color="black", size=annotate_size)
+WLP_scatter
+
+puma_scatter <- ggplot(test_df, aes(x=puma, y=current))+ 
+  geom_point(color=plot_colors[4])+
+  geom_smooth(method=lm, color='black',se=FALSE) +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)+
+  ggtitle('D) Puma')+
+  annotate(geom="text", x=0.8, y=2, label=paste0("rho = ", round(hmisc_mat_r[5], 2)),
+           color="black", size=annotate_size)+
+  annotate(geom="text", x=0.8, y=1.8, label=paste0("p = ", round(hmisc_mat_p[5], 2)),
+           color="black", size=annotate_size)
+puma_scatter
+
+collared_scatter <- ggplot(test_df, aes(x=collared, y=current))+ 
+  geom_point(color=plot_colors[5])+
+  geom_smooth(method=lm, color='black',se=FALSE) +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)+
+  ggtitle('E) Collared')+
+  annotate(geom="text", x=0.3, y=2, label=paste0("rho = ", round(hmisc_mat_r[6], 2)),
+           color="black", size=annotate_size)+
+  annotate(geom="text", x=0.3, y=1.8, label=paste0("p = ", round(hmisc_mat_p[6], 2)),
+           color="black", size=annotate_size)
+collared_scatter
+
+curassow_scatter <- ggplot(test_df, aes(x=curassow, y=current))+ 
+  geom_point(color=plot_colors[6])+
+  geom_smooth(method=lm, color='black',se=FALSE) +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)+
+  ggtitle('F) Curassow')+
+  annotate(geom="text", x=0.3, y=2, label=paste0("rho = ", round(hmisc_mat_r[7], 2)),
+           color="black", size=annotate_size)+
+  annotate(geom="text", x=0.3, y=1.8, label=paste0("p = ", round(hmisc_mat_p[7], 2)),
+           color="black", size=annotate_size)
+curassow_scatter
+
+paca_scatter <- ggplot(test_df, aes(x=paca, y=current))+ 
+  geom_point(color=plot_colors[7])+
+  geom_smooth(method=lm, color='black',se=FALSE) +
+  theme_classic()+
+  theme(axis.text.y=element_text(color='black', size=axistest_size),
+        axis.text.x=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size))+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  scale_y_continuous(limits=c(0,2), name='Current')+
+  scale_color_manual(values=plot_colors)+
+  ggtitle('G) Paca')+
+  annotate(geom="text", x=0.3, y=2, label=paste0("rho = ", round(hmisc_mat_r[8], 2)),
+           color="black", size=annotate_size)+
+  annotate(geom="text", x=0.3, y=1.8, label=paste0("p = ", round(hmisc_mat_p[8], 2)),
+           color="black", size=annotate_size)
+paca_scatter
+
+# this seems to be the best one we have so far with all on one plot
+species_lines <- test_df_melted %>% 
+  ggplot(aes(y=current, x=occupancy, group=Species, color=Species)) +
+  #geom_point()+
+  geom_smooth(method='lm', se=F, show.legend=T) +
+  theme_classic()+
+  theme(axis.text.x=element_text(color='black', size=axistest_size),
+        axis.text.y=element_text(color='black', size=axistest_size),
+        plot.title=element_text(size=title_size),
+        axis.title.x=element_text(color='black', size=axistest_size),
+        axis.title.y=element_text(color='black', size=axistest_size),
+        legend.position=c(0.4,0.85),
+        legend.key.height= unit(0.25, 'cm'),
+        legend.key.width= unit(0.75, 'cm'),
+        legend.title=element_blank(),
+        legend.text=element_text(color='black', size=6),
+        legend.background=element_blank())+
+  scale_y_continuous(limits=c(0,1), name='Current')+
+  scale_x_continuous(limits=c(0,1), name='Occupancy probability')+
+  coord_cartesian(ylim = c(0,0.5), xlim=c(0,1))+
+  ggtitle('H) All species')+
+  scale_color_manual(values = plot_colors, labels=c('tapir'='Tapir','jaguar'='Jaguar','WLP'='WLP','puma'='Puma','collared'='Collared','curassow'='Curassow','paca'='Paca'))+
+  guides(color = guide_legend(nrow = 7))
+species_lines
+
+jpeg(filename='Figures/AmistOsa_occupancy_scatter.jpeg', height=5, width=7, units='in', res=300)
+  grid.arrange(tapir_scatter, jaguar_scatter, WLP_scatter, puma_scatter,
+             collared_scatter, curassow_scatter, paca_scatter, species_lines, nrow=2)
+dev.off()
+
+
+
+
+
+# # Should we try good ol' base R?
+# xlimz <- c(0,1)
+# ylimz <- c(0,1)
+# plot(tapir ~ current, data=test_df, xlim=xlimz, ylim=ylimz, las=1, pch='',
+#      xlab='Current',ylab='Occupancy')
+# abline(lm(tapir ~ current, data=test_df),col=plot_colors[1], lwd=2)
+# abline(lm(jaguar ~ current, data=test_df),col=plot_colors[2], lwd=2)
+# abline(lm(WLP ~ current, data=test_df),col=plot_colors[3], lwd=2)
+# abline(lm(puma ~ current, data=test_df),col=plot_colors[4], lwd=2)
+# abline(lm(collared ~ current, data=test_df),col=plot_colors[5], lwd=2)
+# abline(lm(curassow ~ current, data=test_df),col=plot_colors[6], lwd=2)
+# abline(lm(paca ~ current, data=test_df),col=plot_colors[7], lwd=2)
+
+
 #### Get cameras per protected area ####
-locs2 <- subset(locs, !(placename=='MS#117'))
+#locs2 <- subset(locs, !(placename=='MS#117'))
 cameras_pts <- terra::vect(locs2, geom=c('longitude','latitude'), crs="EPSG:4326", keepgeom=T)
 cameras_pts <- terra::project(cameras_pts, "EPSG:31971")
 plot(AmistOsa)
@@ -799,83 +1304,83 @@ m2_mb.gof.boot
 
 
 #### GAMS?? ####
-library(mgcv)
-mod_lm = gam(Tapirus.bairdii ~ z.meanForestPatchArea, data = mod_dat)
-summary(mod_lm)
-
-# Note: seems like meanForestPatchArea is the best predictor; others may be signif in some cases but don't improve deviance explained much
-gam_tapir = gam(Tapirus.bairdii ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
-gam_tapir = gam(Tapirus.bairdii ~ s(z.meanForestPatchArea), data = mod_dat)
-summary(gam_tapir)
-plot(gam_tapir)
-
-gam_tapir_prediction <- as.data.frame(predict.gam(gam_tapir, pred_dat))
-names(gam_tapir_prediction) <- 'gam_tapir_prediction'
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
-gam_tapir_prediction$x <- xy[,1]
-gam_tapir_prediction$y <- xy[,2]
-gam_tapir_prediction <- gam_tapir_prediction[,c('x','y','gam_tapir_prediction')]
-
-gam_tapir_prediction <- terra::rast(gam_tapir_prediction, type='xyz', crs=crs(protected_grid_rast))
-gam_tapir_prediction <- terra::mask(gam_tapir_prediction, AmistOsa)
-plot(gam_tapir_prediction, main='Tapir')
-plot(AmistOsa, add=T)
-hist(gam_tapir_prediction)
-
-#gam_jaguar = gam(Panthera.onca ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
-gam_jaguar = gam(Panthera.onca ~ s(z.meanForestPatchArea), data = mod_dat)
-summary(gam_jaguar)
-plot(gam_jaguar)
-
-gam_jaguar_prediction <- as.data.frame(predict.gam(gam_jaguar, pred_dat))
-names(gam_jaguar_prediction) <- 'gam_jaguar_prediction'
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
-gam_jaguar_prediction$x <- xy[,1]
-gam_jaguar_prediction$y <- xy[,2]
-gam_jaguar_prediction <- gam_jaguar_prediction[,c('x','y','gam_jaguar_prediction')]
-
-gam_jaguar_prediction <- terra::rast(gam_jaguar_prediction, type='xyz', crs=crs(protected_grid_rast))
-gam_jaguar_prediction <- terra::mask(gam_jaguar_prediction, AmistOsa)
-plot(gam_jaguar_prediction, main='Jaguar')
-plot(AmistOsa, add=T)
-hist(gam_jaguar_prediction)
-
-#gam_puma = gam(Puma.concolor ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
-gam_puma = gam(Puma.concolor ~ s(z.meanForestPatchArea), data = mod_dat)
-summary(gam_puma)
-plot(gam_puma)
-
-gam_puma_prediction <- as.data.frame(predict.gam(gam_puma, pred_dat))
-names(gam_puma_prediction) <- 'gam_puma_prediction'
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
-gam_puma_prediction$x <- xy[,1]
-gam_puma_prediction$y <- xy[,2]
-gam_puma_prediction <- gam_puma_prediction[,c('x','y','gam_puma_prediction')]
-
-gam_puma_prediction <- terra::rast(gam_puma_prediction, type='xyz', crs=crs(protected_grid_rast))
-gam_puma_prediction <- terra::mask(gam_puma_prediction, AmistOsa)
-plot(gam_puma_prediction, main='Puma')
-plot(AmistOsa, add=T)
-hist(gam_puma_prediction)
-
-
-#gam_WLP = gam(Tayassu.pecari ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
-gam_WLP = gam(Tayassu.pecari ~ s(z.meanForestPatchArea), data = mod_dat)
-summary(gam_WLP)
-plot(gam_WLP)
-
-gam_WLP_prediction <- as.data.frame(predict.gam(gam_WLP, pred_dat))
-names(gam_WLP_prediction) <- 'gam_WLP_prediction'
-xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
-gam_WLP_prediction$x <- xy[,1]
-gam_WLP_prediction$y <- xy[,2]
-gam_WLP_prediction <- gam_WLP_prediction[,c('x','y','gam_WLP_prediction')]
-
-gam_WLP_prediction <- terra::rast(gam_WLP_prediction, type='xyz', crs=crs(protected_grid_rast))
-gam_WLP_prediction <- terra::mask(gam_WLP_prediction, AmistOsa)
-plot(gam_WLP_prediction, main='WLP')
-plot(AmistOsa, add=T)
-hist(gam_WLP_prediction)
+# library(mgcv)
+# mod_lm = gam(Tapirus.bairdii ~ z.meanForestPatchArea, data = mod_dat)
+# summary(mod_lm)
+# 
+# # Note: seems like meanForestPatchArea is the best predictor; others may be signif in some cases but don't improve deviance explained much
+# gam_tapir = gam(Tapirus.bairdii ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
+# gam_tapir = gam(Tapirus.bairdii ~ s(z.meanForestPatchArea), data = mod_dat)
+# summary(gam_tapir)
+# plot(gam_tapir)
+# 
+# gam_tapir_prediction <- as.data.frame(predict.gam(gam_tapir, pred_dat))
+# names(gam_tapir_prediction) <- 'gam_tapir_prediction'
+# xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
+# gam_tapir_prediction$x <- xy[,1]
+# gam_tapir_prediction$y <- xy[,2]
+# gam_tapir_prediction <- gam_tapir_prediction[,c('x','y','gam_tapir_prediction')]
+# 
+# gam_tapir_prediction <- terra::rast(gam_tapir_prediction, type='xyz', crs=crs(protected_grid_rast))
+# gam_tapir_prediction <- terra::mask(gam_tapir_prediction, AmistOsa)
+# plot(gam_tapir_prediction, main='Tapir')
+# plot(AmistOsa, add=T)
+# hist(gam_tapir_prediction)
+# 
+# #gam_jaguar = gam(Panthera.onca ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
+# gam_jaguar = gam(Panthera.onca ~ s(z.meanForestPatchArea), data = mod_dat)
+# summary(gam_jaguar)
+# plot(gam_jaguar)
+# 
+# gam_jaguar_prediction <- as.data.frame(predict.gam(gam_jaguar, pred_dat))
+# names(gam_jaguar_prediction) <- 'gam_jaguar_prediction'
+# xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
+# gam_jaguar_prediction$x <- xy[,1]
+# gam_jaguar_prediction$y <- xy[,2]
+# gam_jaguar_prediction <- gam_jaguar_prediction[,c('x','y','gam_jaguar_prediction')]
+# 
+# gam_jaguar_prediction <- terra::rast(gam_jaguar_prediction, type='xyz', crs=crs(protected_grid_rast))
+# gam_jaguar_prediction <- terra::mask(gam_jaguar_prediction, AmistOsa)
+# plot(gam_jaguar_prediction, main='Jaguar')
+# plot(AmistOsa, add=T)
+# hist(gam_jaguar_prediction)
+# 
+# #gam_puma = gam(Puma.concolor ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
+# gam_puma = gam(Puma.concolor ~ s(z.meanForestPatchArea), data = mod_dat)
+# summary(gam_puma)
+# plot(gam_puma)
+# 
+# gam_puma_prediction <- as.data.frame(predict.gam(gam_puma, pred_dat))
+# names(gam_puma_prediction) <- 'gam_puma_prediction'
+# xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
+# gam_puma_prediction$x <- xy[,1]
+# gam_puma_prediction$y <- xy[,2]
+# gam_puma_prediction <- gam_puma_prediction[,c('x','y','gam_puma_prediction')]
+# 
+# gam_puma_prediction <- terra::rast(gam_puma_prediction, type='xyz', crs=crs(protected_grid_rast))
+# gam_puma_prediction <- terra::mask(gam_puma_prediction, AmistOsa)
+# plot(gam_puma_prediction, main='Puma')
+# plot(AmistOsa, add=T)
+# hist(gam_puma_prediction)
+# 
+# 
+# #gam_WLP = gam(Tayassu.pecari ~ s(z.meanForestPatchArea) + s(z.protected_area_dist_m) + s(z.canopy_height_m) + s(z.forest_core_dist_m), data = mod_dat)
+# gam_WLP = gam(Tayassu.pecari ~ s(z.meanForestPatchArea), data = mod_dat)
+# summary(gam_WLP)
+# plot(gam_WLP)
+# 
+# gam_WLP_prediction <- as.data.frame(predict.gam(gam_WLP, pred_dat))
+# names(gam_WLP_prediction) <- 'gam_WLP_prediction'
+# xy <- terra::xyFromCell(forest_core_grid_rast, cell=seq(1,ncell(forest_core_grid_rast),1))
+# gam_WLP_prediction$x <- xy[,1]
+# gam_WLP_prediction$y <- xy[,2]
+# gam_WLP_prediction <- gam_WLP_prediction[,c('x','y','gam_WLP_prediction')]
+# 
+# gam_WLP_prediction <- terra::rast(gam_WLP_prediction, type='xyz', crs=crs(protected_grid_rast))
+# gam_WLP_prediction <- terra::mask(gam_WLP_prediction, AmistOsa)
+# plot(gam_WLP_prediction, main='WLP')
+# plot(AmistOsa, add=T)
+# hist(gam_WLP_prediction)
 
 # 
 # mod_gam3 = gam(Puma.concolor ~ s(z.meanForestPatchArea), data = mod_dat)
@@ -902,80 +1407,80 @@ hist(gam_WLP_prediction)
 # summary(mod_gam8)
 # plot(mod_gam8)
 
-library(ggplot2)
-# code was taken from RAPID fire code, so messy...
-plotTapir <- ggplot(data=mod_dat, aes_string(x="z.meanForestPatchArea", y="Tapirus.bairdii"))+
-  ggtitle('Tapirus.bairdii')+
-  geom_point(size=1.5)+ 
-  geom_point(size=1.5, aes_string(x="z.meanForestPatchArea", y="Tapirus.bairdii"))+ #add another point layers with colors for conn class
-  #geom_text(hjust=0, vjust=0, size=2, nudge_x=labelnudge)+
-  #geom_smooth(method='lm')+ separate lines for isolated and drainage
-  geom_smooth(method=mgcv::gam, formula= y ~ s(x, bs='tp'), color='black')+
-  theme_classic()+
-  #scale_x_continuous(limits=xlimz, name=xlabb)+
-  #scale_y_continuous(limits=ylimz, name=ylabb)+
-  theme(axis.text.x = element_text(color='black'),
-        axis.text.y=element_text(color='black'),
-        axis.title.x=element_text(size=8),
-        axis.title.y=element_text(size=8),
-        legend.position=c('none'), #don't need this legend in other panels 
-        plot.title=element_text(size=10),
-        legend.title=element_blank(),
-        legend.key.size=unit(0.5, 'cm'),
-        legend.background=element_rect(color='black', fill='white', linetype='solid'),
-        legend.box.margin=margin(0,0,0,0),
-        legend.margin=margin(c(0,0,0,0)))
-plotTapir  
-
-
-plotPuma <- ggplot(data=mod_dat, aes_string(x="z.meanForestPatchArea", y="Puma.concolor"))+
-  ggtitle('Puma.concolor')+
-  geom_point(size=1.5)+ 
-  geom_point(size=1.5, aes_string(x="z.meanForestPatchArea", y="Puma.concolor"))+ #add another point layers with colors for conn class
-  #geom_text(hjust=0, vjust=0, size=2, nudge_x=labelnudge)+
-  #geom_smooth(method='lm')+ separate lines for isolated and drainage
-  geom_smooth(method=mgcv::gam, formula= y ~ s(x, bs='tp'), color='black')+
-  theme_classic()+
-  #scale_x_continuous(limits=xlimz, name=xlabb)+
-  #scale_y_continuous(limits=ylimz, name=ylabb)+
-  theme(axis.text.x = element_text(color='black'),
-        axis.text.y=element_text(color='black'),
-        axis.title.x=element_text(size=8),
-        axis.title.y=element_text(size=8),
-        legend.position=c('none'), #don't need this legend in other panels 
-        plot.title=element_text(size=10),
-        legend.title=element_blank(),
-        legend.key.size=unit(0.5, 'cm'),
-        legend.background=element_rect(color='black', fill='white', linetype='solid'),
-        legend.box.margin=margin(0,0,0,0),
-        legend.margin=margin(c(0,0,0,0)))
-plotPuma  
-
-#### Maybe random forest? ####
-# seems like predictions aren't necessarily better than linear regression
-library(randomForest)
-library(datasets)
-library(caret)
-
-set.seed(95)
-rf <- randomForest(Tapirus.bairdii ~ 
-                     z.canopy_height_m+
-                     #z.pct_protected+
-                     #z.pct_forest_core+
-                     z.protected_area_dist_m+
-                     z.pct_ag+
-                     z.forest_core_dist_m, data=mod_dat, ntree=500,
-                   importance=T) 
-rf
-importance(rf)
-varImpPlot(rf)
-plot(rf, xlim=c(0,1000))
-
-predicted <- predict(rf, pred_dat[,c(5:10)], type='response')
-yy <- cbind.data.frame(pred_dat[,c(5:13)], predicted)
-summary(yy$predicted) #these don't make sense...points outside range of calibration data?
-
-rf_raster <- terra::rast(yy[,c(8:10)], type='xyz', crs=crs(protected_grid_rast))
-rf_raster
-plot(rf_raster)
-plot(AmistOsa, add=T)
+# library(ggplot2)
+# # code was taken from RAPID fire code, so messy...
+# plotTapir <- ggplot(data=mod_dat, aes_string(x="z.meanForestPatchArea", y="Tapirus.bairdii"))+
+#   ggtitle('Tapirus.bairdii')+
+#   geom_point(size=1.5)+ 
+#   geom_point(size=1.5, aes_string(x="z.meanForestPatchArea", y="Tapirus.bairdii"))+ #add another point layers with colors for conn class
+#   #geom_text(hjust=0, vjust=0, size=2, nudge_x=labelnudge)+
+#   #geom_smooth(method='lm')+ separate lines for isolated and drainage
+#   geom_smooth(method=mgcv::gam, formula= y ~ s(x, bs='tp'), color='black')+
+#   theme_classic()+
+#   #scale_x_continuous(limits=xlimz, name=xlabb)+
+#   #scale_y_continuous(limits=ylimz, name=ylabb)+
+#   theme(axis.text.x = element_text(color='black'),
+#         axis.text.y=element_text(color='black'),
+#         axis.title.x=element_text(size=8),
+#         axis.title.y=element_text(size=8),
+#         legend.position=c('none'), #don't need this legend in other panels 
+#         plot.title=element_text(size=10),
+#         legend.title=element_blank(),
+#         legend.key.size=unit(0.5, 'cm'),
+#         legend.background=element_rect(color='black', fill='white', linetype='solid'),
+#         legend.box.margin=margin(0,0,0,0),
+#         legend.margin=margin(c(0,0,0,0)))
+# plotTapir  
+# 
+# 
+# plotPuma <- ggplot(data=mod_dat, aes_string(x="z.meanForestPatchArea", y="Puma.concolor"))+
+#   ggtitle('Puma.concolor')+
+#   geom_point(size=1.5)+ 
+#   geom_point(size=1.5, aes_string(x="z.meanForestPatchArea", y="Puma.concolor"))+ #add another point layers with colors for conn class
+#   #geom_text(hjust=0, vjust=0, size=2, nudge_x=labelnudge)+
+#   #geom_smooth(method='lm')+ separate lines for isolated and drainage
+#   geom_smooth(method=mgcv::gam, formula= y ~ s(x, bs='tp'), color='black')+
+#   theme_classic()+
+#   #scale_x_continuous(limits=xlimz, name=xlabb)+
+#   #scale_y_continuous(limits=ylimz, name=ylabb)+
+#   theme(axis.text.x = element_text(color='black'),
+#         axis.text.y=element_text(color='black'),
+#         axis.title.x=element_text(size=8),
+#         axis.title.y=element_text(size=8),
+#         legend.position=c('none'), #don't need this legend in other panels 
+#         plot.title=element_text(size=10),
+#         legend.title=element_blank(),
+#         legend.key.size=unit(0.5, 'cm'),
+#         legend.background=element_rect(color='black', fill='white', linetype='solid'),
+#         legend.box.margin=margin(0,0,0,0),
+#         legend.margin=margin(c(0,0,0,0)))
+# plotPuma  
+# 
+# #### Maybe random forest? ####
+# # seems like predictions aren't necessarily better than linear regression
+# library(randomForest)
+# library(datasets)
+# library(caret)
+# 
+# set.seed(95)
+# rf <- randomForest(Tapirus.bairdii ~ 
+#                      z.canopy_height_m+
+#                      #z.pct_protected+
+#                      #z.pct_forest_core+
+#                      z.protected_area_dist_m+
+#                      z.pct_ag+
+#                      z.forest_core_dist_m, data=mod_dat, ntree=500,
+#                    importance=T) 
+# rf
+# importance(rf)
+# varImpPlot(rf)
+# plot(rf, xlim=c(0,1000))
+# 
+# predicted <- predict(rf, pred_dat[,c(5:10)], type='response')
+# yy <- cbind.data.frame(pred_dat[,c(5:13)], predicted)
+# summary(yy$predicted) #these don't make sense...points outside range of calibration data?
+# 
+# rf_raster <- terra::rast(yy[,c(8:10)], type='xyz', crs=crs(protected_grid_rast))
+# rf_raster
+# plot(rf_raster)
+# plot(AmistOsa, add=T)

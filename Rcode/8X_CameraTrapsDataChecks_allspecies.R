@@ -1,8 +1,8 @@
-##################### AmistOsa camera traps: data checks ##########################
+##################### AmistOsa camera traps: data checks without filtering by species ##########################
 # Date: 12-12-23
-# updated: 2-14-24: filter out some cameras
+# updated: 2-16-24: don't filter based on taxa
 # Author: Ian McCullough, immccull@gmail.com
-###################################################################################
+################################################################################################################
 
 #### R libraries ####
 list.of.packages <- c(
@@ -55,7 +55,8 @@ img_rs <- read.csv("Data/spatial/CameraTraps/road_survey/database_main.csv")
 #dep_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format_extracted.csv")
 dep_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/deployments_megasurvey_WI_format.csv")
 #img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format.csv")
-img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format_wPowershell.csv")
+#img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format_wPowershell.csv")
+img_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/images_megasurvey_WI_format_wPowershell_unfiltered.csv")
 #cameras_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format_extracted.csv")
 cameras_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/cameras_megasurvey_WI_format.csv")
 projects_ms <- read.csv("Data/spatial/CameraTraps/megasurvey/projects_megasurvey_WI_format.csv")
@@ -231,12 +232,13 @@ img_rs <- img_rs %>%  # stamps each image with end date for associated camera
 img_rs$is_blank <- ifelse(is.na(img_rs$Species)==F, 0, 1)#column in WI format
 
 # get rid of non-mammals, domestic animals, people, stuff not identified to species level
-img_rs <- subset(img_rs, !(Species %in% c('setup','bird','nothing','pigeon','tinamou',
-                                        'rodent','uid','tinamou_little','pig',
-                                        'motmot','dog','lizard_uid','squirrel_uid',
-                                        'rail','people','hawk','cow',
-                                        'cat','iguana_green','guan_crested','not_usable',
-                                        'opossum_uid','mouse','bat')))
+# update: not doing this step
+# img_rs <- subset(img_rs, !(Species %in% c('setup','bird','nothing','pigeon','tinamou',
+#                                         'rodent','uid','tinamou_little','pig',
+#                                         'motmot','dog','lizard_uid','squirrel_uid',
+#                                         'rail','people','hawk','cow',
+#                                         'cat','iguana_green','guan_crested','not_usable',
+#                                         'opossum_uid','mouse','bat')))
 
 # get those camera end dates into the deployment table
 rs_enddates <- img_rs[,c('placename','end')]
@@ -735,7 +737,7 @@ for(i in 1:max(dep_tmp$plot_group))
 # but some of the new images don't have image_id! Argh!
 # so need to create a new rowID
 img_combined$rowID <- seq(1,nrow(img_combined),1)
-quarantine <- subset(img_combined, deployment_id %in% c('G69_b','G119_a','G19_a','G50_a','G48_a','Rf8_M130_4122022','Rf7_M064_4122022','Rf4_M055_2122022','MS#182','MS#149','MS#166','MS#26','MS#22','MS#108'))
+quarantine <- subset(img_combined, deployment_id %in% c('G69_b','G119_a','G19_a','G50_a','G48_a','Rf8_M130_4122022','Rf7_M064_4122022','Rf4_M055_2122022','MS#182','MS#149','MS#166','MS#26','MS#22','MS#108','MS#160','MS#153','MS#129','MS#23'))
 quarantine <- left_join(quarantine[,c('deployment_id','timestamp','rowID')], dep_combined[,c('deployment_id','start_date','end_date')], by='deployment_id')
 quarantine$capture_date <- as.Date(quarantine$timestamp)
 quarantine$keep <- ifelse(quarantine$capture_date <= quarantine$end_date & quarantine$capture_date >= quarantine$start_date, 'Yes','No')
@@ -810,13 +812,14 @@ fig
 #dir.create("Data/spatial/CameraTraps/wildlife-insights/processed_data")
 
 ## fill in missing taxonomic information (road survey cameras)
-img_combined <- subset(img_combined, class %in% c('Mammalia',NA) | common_name %in% c('curassow_great','Great Curassow') | project_id=='roadsurvey')
-img_combined <- subset(img_combined, !(common_name %in% c('Rodent','Pecari Species','Peccary Family','Peromyscus Species','Didelphis Species','Bovidae Family','Nasua Species','Muridae Family','Suidae Family',
-                                                          'Mammal','Cat Family','Procyon Species','Didelphimorphia Order','Bat','Human','Horseback Rider', 'Human-Camera Trapper','Skunk Family',
-                                                          'Dasypus Species','Small Mammal','Leopardus Species','Possum Family','Coati Family','Homo Species','Dasyproctidae Family','Primate',
-                                                          'Sciuridae Family','Armadillo Family','Cervidae Family','Domestic Dog','Cricetidae Family','Marmosa Species','Cetartiodactyla Order',
-                                                          'Spiny Rat Family','Phyllostomidae Family','Proechimys Species','Carnivorous Mammal','raccoon','Dasyprocta Species','Wild Boar','Sus Species',
-                                                          'bat','bird','opossum_uid','rodent','squirrel_uid','lizard_uid','toad','snake','tinamou')))
+# but no filtering out this time
+# img_combined <- subset(img_combined, class %in% c('Mammalia',NA) | common_name %in% c('curassow_great','Great Curassow') | project_id=='roadsurvey')
+# img_combined <- subset(img_combined, !(common_name %in% c('Rodent','Pecari Species','Peccary Family','Peromyscus Species','Didelphis Species','Bovidae Family','Nasua Species','Muridae Family','Suidae Family',
+#                                                           'Mammal','Cat Family','Procyon Species','Didelphimorphia Order','Bat','Human','Horseback Rider', 'Human-Camera Trapper','Skunk Family',
+#                                                           'Dasypus Species','Small Mammal','Leopardus Species','Possum Family','Coati Family','Homo Species','Dasyproctidae Family','Primate',
+#                                                           'Sciuridae Family','Armadillo Family','Cervidae Family','Domestic Dog','Cricetidae Family','Marmosa Species','Cetartiodactyla Order',
+#                                                           'Spiny Rat Family','Phyllostomidae Family','Proechimys Species','Carnivorous Mammal','raccoon','Dasyprocta Species','Wild Boar','Sus Species',
+#                                                           'bat','bird','opossum_uid','rodent','squirrel_uid','lizard_uid','toad','snake','tinamou')))
 # Need to consolidate/standardize common names (e.g., make "peccary_collared" same as Collared Peccary)
 img_combined$common_name <- ifelse(img_combined$common_name=='peccary_collared','Collared Peccary', img_combined$common_name)
 img_combined$common_name <- ifelse(img_combined$common_name=='ocelot','Ocelot', img_combined$common_name)
@@ -950,8 +953,8 @@ dep_combined <- test
 img_combined <- subset(img_combined, placename %in% dep_combined$placename)
 
 ## Save WI format datasets for combined projects
-#write.csv(dep_combined, file="Data/spatial/CameraTraps/deployments_combined_projects.csv", row.names=F)
-#write.csv(img_combined, file="Data/spatial/CameraTraps/images_combined_projects.csv", row.names=F)
+#write.csv(dep_combined, file="Data/spatial/CameraTraps/deployments_combined_projects_unfiltered.csv", row.names=F)
+#write.csv(img_combined, file="Data/spatial/CameraTraps/images_combined_projects_unfiltered.csv", row.names=F)
 
 cameras_combined <- dep_combined[,c('project_id','deployment_id','placename')]
 cameras_combined <- left_join(cameras_combined, cameras_ms, by=c('placename'='camera_name'))
@@ -959,7 +962,7 @@ cameras_combined <- cameras_combined[,c(1:3, 5:9)]
 cameras_combined$camera_id <- ifelse(is.na(cameras_combined$camera_id), cameras_combined$deployment_id, cameras_combined$camera_id)
 cameras_combined <- cameras_combined[,c(1,4,3,5,6,7,8)]
 names(cameras_combined) <- c('project_id','camera_id','camera_name','make','model','serial_number','year_purchased')
-#write.csv(cameras_combined, file="Data/spatial/CameraTraps/cameras_combined_projects.csv", row.names=F)
+#write.csv(cameras_combined, file="Data/spatial/CameraTraps/cameras_combined_projects_unfiltered.csv", row.names=F)
 
 images_sub <- img_combined
 
