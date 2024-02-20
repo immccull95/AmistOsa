@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 2-16-24: analyze capture rates vs. current and conductance
+# updated: 2-19-24: export data to analyze in script 11
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -180,8 +180,8 @@ long_obs <- total_obs %>%
 
 # We can them summaries those using dplyr
 tmp <- long_obs %>%                   # Take the long observation data frame `long_obs` 
-  group_by(sp) %>%            # Group by species
-  summarize(count=sum(count)) # Sum all the independent observations
+  dplyr::group_by(sp) %>%            # Group by species
+  dplyr::summarize(count=sum(count)) # Sum all the independent observations
 
 # Add it to the sp_summary dataframe
 sp_summary <- left_join(sp_summary, tmp)
@@ -238,7 +238,7 @@ xform <- list(title="Occupancy")
 fig2 <- plot_ly(x = sp_summary$occupancy, y = sp_summary$sp, type = 'bar', orientation = 'h') %>% 
   layout(yaxis = yform, xaxis=xform)
 
-subplot(nrows=1,fig1, fig2, titleX = T) # We could stack them on top of one another using nrows=2
+plotly::subplot(nrows=1,fig1, fig2, titleX = T) # We could stack them on top of one another using nrows=2
 
 ## 8.3: Temporal patterns in capture rates
 # Count up the number of stations and the number of camera nights
@@ -306,7 +306,7 @@ m <- leaflet() %>%
                    fillOpacity=0.6) 
 m
 
-## 8.5.X: analyze capture rates in relation to current
+## 8.5.X: prepare data to analyze capture rates in relation to current
 # here, with capture rate = number of detections (for a given species)/number of camera days
 capped <- total_obs[,c('placename','days','Crax.rubra','Cuniculus.paca',
                        'Panthera.onca','Pecari.tajacu','Puma.concolor',
@@ -324,172 +324,10 @@ capped$tapir_rate <- capped$tapir/capped$days
 capped$WLP_rate <- capped$WLP/capped$days
 
 # bring in current data (merge will fail if not already created cameras_merger)
-capped <- merge(capped, cameras_merger[,c('placename','mean_current','Protected','natlpark')], by='placename')
+capped <- merge(capped, cameras_merger[,c('placename','mean_current','mean_conductance','Protected','natlpark')], by='placename')
 
-## First analyze all cameras
-# get correlation matrix
-library(Hmisc)
-test <- rcorr(as.matrix(capped[,c(10:17)]), type='spearman')[1]
-test$r[,8]
-
-library(reshape2)
-capped_melted <- capped[,c(10:17)]
-capped_melted <- melt(capped_melted, id.vars='mean_current',
-                      measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
-                                     'collared_rate','puma_rate','tapir_rate',
-                                     'WLP_rate'))
-names(capped_melted) <- c('mean_current','species','capture_rate')
-
-levels(capped_melted$species) <- list(curassow  = "curassow_rate", 
-                                      paca = "paca_rate",
-                                      jaguar = "jaguar_rate",
-                                      collared = "collared_rate",
-                                      puma = "puma_rate",
-                                      tapir = "tapir_rate",
-                                      WLP = "WLP_rate")
-
-ggplot(capped_melted, aes(mean_current, capture_rate)) + 
-  geom_smooth(method='lm', se=F) + 
-  theme_bw()+
-  facet_grid(species ~ .)
-
-## Now just cameras outside protected areas
-capped_unprotected <- subset(capped, Protected=='No')
-rcorr(as.matrix(capped_unprotected[,c(10:17)]), type='spearman')
-test <- rcorr(as.matrix(capped_unprotected[,c(10:17)]), type='spearman')[1]
-test$r[,8]
-
-capped_unprotected_melted <- capped_unprotected[,c(10:17)]
-capped_unprotected_melted <- melt(capped_unprotected_melted, id.vars='mean_current',
-                                  measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
-                                                 'collared_rate','puma_rate','tapir_rate',
-                                                 'WLP_rate'))
-names(capped_unprotected_melted) <- c('mean_current','species','capture_rate')
-
-levels(capped_unprotected_melted$species) <- list(curassow  = "curassow_rate", 
-                                                  paca = "paca_rate",
-                                                  jaguar = "jaguar_rate",
-                                                  collared = "collared_rate",
-                                                  puma = "puma_rate",
-                                                  tapir = "tapir_rate",
-                                                  WLP = "WLP_rate")
-
-ggplot(capped_unprotected_melted, aes(mean_current, capture_rate)) + 
-  geom_smooth(method='lm', se=F) + 
-  theme_bw()+
-  facet_grid(species ~ .)
-
-
-## Now just cameras outside natlparks
-capped_unnatlpark <- subset(capped, natlpark=='No')
-rcorr(as.matrix(capped_unnatlpark[,c(10:17)]), type='spearman')
-test <- rcorr(as.matrix(capped_unnatlpark[,c(10:17)]), type='spearman')[1]
-test$r[,8]
-
-capped_unnatlpark_melted <- capped_unnatlpark[,c(10:17)]
-capped_unnatlpark_melted <- melt(capped_unnatlpark_melted, id.vars='mean_current',
-                                 measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
-                                                'collared_rate','puma_rate','tapir_rate',
-                                                'WLP_rate'))
-names(capped_unnatlpark_melted) <- c('mean_current','species','capture_rate')
-
-levels(capped_unnatlpark_melted$species) <- list(curassow  = "curassow_rate", 
-                                                 paca = "paca_rate",
-                                                 jaguar = "jaguar_rate",
-                                                 collared = "collared_rate",
-                                                 puma = "puma_rate",
-                                                 tapir = "tapir_rate",
-                                                 WLP = "WLP_rate")
-
-ggplot(capped_unnatlpark_melted, aes(mean_current, capture_rate)) + 
-  geom_smooth(method='lm', se=F) + 
-  theme_bw()+
-  facet_grid(species ~ .)
-
-## let's try this again with conductance instead of current
-# bring in conductance data (merge will fail if not already created cameras_merger
-capped2 <- capped
-capped2 <- merge(capped2, cameras_merger[,c('placename','mean_conductance','Protected','natlpark')], by='placename')
-
-## First analyze all cameras
-# get correlation matrix
-test <- rcorr(as.matrix(capped2[,c(10:17)]), type='spearman')[1]
-test$r[,8]
-
-capped2_melted <- capped2[,c(10:17)]
-capped2_melted <- melt(capped2_melted, id.vars='mean_conductance',
-                       measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
-                                      'collared_rate','puma_rate','tapir_rate',
-                                      'WLP_rate'))
-names(capped2_melted) <- c('mean_conductance','species','capture_rate')
-
-levels(capped2_melted$species) <- list(curassow  = "curassow_rate", 
-                                       paca = "paca_rate",
-                                       jaguar = "jaguar_rate",
-                                       collared = "collared_rate",
-                                       puma = "puma_rate",
-                                       tapir = "tapir_rate",
-                                       WLP = "WLP_rate")
-
-ggplot(capped2_melted, aes(mean_conductance, capture_rate)) + 
-  geom_smooth(method='lm', se=F, color='gold') + 
-  theme_bw()+
-  facet_grid(species ~ .)
-
-## Now just cameras outside protected areas
-capped2_unprotected <- subset(capped2, Protected=='No')
-rcorr(as.matrix(capped2_unprotected[,c(10:17)]), type='spearman')
-test <- rcorr(as.matrix(capped2_unprotected[,c(10:17)]), type='spearman')[1]
-test$r[,8]
-
-capped2_unprotected_melted <- capped2_unprotected[,c(10:17)]
-capped2_unprotected_melted <- melt(capped2_unprotected_melted, id.vars='mean_conductance',
-                                   measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
-                                                  'collared_rate','puma_rate','tapir_rate',
-                                                  'WLP_rate'))
-names(capped2_unprotected_melted) <- c('mean_conductance','species','capture_rate')
-
-levels(capped2_unprotected_melted$species) <- list(curassow  = "curassow_rate", 
-                                                   paca = "paca_rate",
-                                                   jaguar = "jaguar_rate",
-                                                   collared = "collared_rate",
-                                                   puma = "puma_rate",
-                                                   tapir = "tapir_rate",
-                                                   WLP = "WLP_rate")
-
-ggplot(capped2_unprotected_melted, aes(mean_conductance, capture_rate)) + 
-  geom_smooth(method='lm', se=F, color='gold') + 
-  theme_bw()+
-  facet_grid(species ~ .)
-
-
-## Now just cameras outside natlparks
-capped2_unnatlpark <- subset(capped2, natlpark=='No')
-rcorr(as.matrix(capped2_unnatlpark[,c(10:17)]), type='spearman')
-test <- rcorr(as.matrix(capped2_unnatlpark[,c(10:17)]), type='spearman')[1]
-test$r[,8]
-
-capped2_unnatlpark_melted <- capped2_unnatlpark[,c(10:17)]
-capped2_unnatlpark_melted <- melt(capped2_unnatlpark_melted, id.vars='mean_conductance',
-                                  measure.vars=c('curassow_rate','paca_rate','jaguar_rate',
-                                                 'collared_rate','puma_rate','tapir_rate',
-                                                 'WLP_rate'))
-names(capped2_unnatlpark_melted) <- c('mean_conductance','species','capture_rate')
-
-levels(capped2_unnatlpark_melted$species) <- list(curassow  = "curassow_rate", 
-                                                  paca = "paca_rate",
-                                                  jaguar = "jaguar_rate",
-                                                  collared = "collared_rate",
-                                                  puma = "puma_rate",
-                                                  tapir = "tapir_rate",
-                                                  WLP = "WLP_rate")
-
-ggplot(capped2_unnatlpark_melted, aes(mean_conductance, capture_rate)) + 
-  geom_smooth(method='lm', se=F, color='gold') + 
-  theme_bw()+
-  facet_grid(species ~ .)
-##
-
+# Analyze in another script (too involved here):
+#write.csv(capped, file='Data/spatial/CameraTraps/capture_rates.csv', row.names=F)
 
 ## 8.6: Species co-occurrences
 # Reset the plot parameters
