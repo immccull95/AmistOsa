@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 12-6-23; get forest/ag patch areas within LCPs
+# updated: 2-26-24; high-current areas
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -66,6 +66,10 @@ top5_LCP <- terra::vect("Data/spatial/LeastCostPaths/top5/AmistOsa_LCPs_merged_t
 
 # and the attributes (e.g., terrain, protection data)
 LCP_export <- read.csv("Data/spatial/LeastCostPaths/top5_LCP_attributes.csv")
+
+# High-current areas
+current_flow_80th <- terra::rast("julia/output/osa_8dir_cgamg_curmap_masked_80thpctNEW.tif")
+
 
 #### Main program ####
 # Map of all candidate LCPs
@@ -262,7 +266,7 @@ summary(top5_LCP_density)
 hist(top5_LCP_density, breaks=seq(0,32,1), main='Corridor density (all origins)',
      xlab='Density')
 
-# Used QGIS "Merge vector layers" to combine LCPs
+# Used QGIS "Merge vector layers" to combine LCPs (too slow/crash-prone in R)
 merged_LCPs <- terra::vect("Data/spatial/LeastCostPaths/AmistOsa_LCPs_merged.shp")
 # merged_LCPs$layer <- ifelse(merged_LCPs$layer=='Piedras Blancas', 'Piedras_Blancas', merged_LCPs$layer)
 # merged_LCPs$layer <- ifelse(merged_LCPs$layer=='Golfito_Start_5', 'Golfito', merged_LCPs$layer)
@@ -286,9 +290,23 @@ top5_LCP_sf <- sf::st_as_sf(top5_LCP)
 top5_LCP_sf_buff <- st_buffer(top5_LCP_sf, dist=buff_dist)
 top5_LCP_buff <- terra::vect(top5_LCP_sf_buff)
 
+# Convert high-current areas to polygons
+protected_areas_dissolved <- terra::aggregate(protected_areas, dissolve=T)
+current_flow_80th_unprotected <- terra::mask(current_flow_80th, protected_areas_dissolved, inverse=T)
+hc_patches <- terra::patches(current_flow_80th_unprotected, directions=8, allowGaps=F)
+hc_polygons <- terra::as.polygons(hc_patches, na.rm=T)
+
+plot(AmistOsa)
+plot(hc_polygons, add=T, col='red')
+
 ### Extract conservation/ecological data for buffered LCPs
+# and high-current areas
+
 ## LCP length
 LCP_length_km <- terra::perim(top5_LCP)/1000
+
+## High-current (hc) patch areas
+hc_area <- terra::expanse(hc_polygons, unit="km")
 
 ## Forest biomass
 LCP_biomass_mean <- terra::extract(biomass, top5_LCP_buff, fun='mean', na.rm=T)
@@ -318,6 +336,11 @@ LCP_canopy$LCP_ID <- top5_LCP_buff$LCP_ID
 summary(LCP_canopy)
 hist(LCP_canopy$canopy_mean, main='Mean forest canopy height', xlab='m')
 
+hc_canopy_mean <- terra::extract(canopy, hc_polygons, fun='mean', na.rm=T)
+names(hc_canopy_mean) <- c('HC_ID','canopy_mean')
+summary(hc_canopy_mean)
+hist(hc_canopy_mean$canopy_mean)
+
 ## Terrain (should not use buffers?)
 LCP_elevation_mean <- terra::extract(DEM, top5_LCP_buff, fun='mean', na.rm=T)
 LCP_elevation_min <- terra::extract(DEM, top5_LCP_buff, fun='min', na.rm=T)
@@ -329,6 +352,16 @@ LCP_elevation$LCP_ID <- top5_LCP_buff$LCP_ID
 summary(LCP_elevation)
 hist(LCP_elevation$elevation_mean, main='LCP mean elevation', xlab='Elevation (m)')
 hist(LCP_elevation$elevation_range, main='LCP elevation range', xlab='Elevation (m)')
+
+hc_elevation_mean <- terra::extract(DEM, hc_polygons, fun='mean', na.rm=T)
+hc_elevation_min <- terra::extract(DEM, hc_polygons, fun='min', na.rm=T)
+hc_elevation_max <- terra::extract(DEM, hc_polygons, fun='max', na.rm=T)
+hc_elevation <- cbind.data.frame(hc_elevation_mean[,2], hc_elevation_min[,2], hc_elevation_max[,2])
+colnames(hc_elevation) <- c('elevation_mean','elevation_min','elevation_max')
+hc_elevation$elevation_range <- hc_elevation$elevation_max - hc_elevation$elevation_min
+hc_elevation$HC_ID <- hc_polygons$patches
+hc_elevation_range <- hc_elevation[,c('HC_ID','elevation_range')]
+summary(hc_elevation)
 
 LCP_slope_mean <- terra::extract(slope, top5_LCP_buff, fun='mean', na.rm=T)
 LCP_slope_min <- terra::extract(slope, top5_LCP_buff, fun='min', na.rm=T)
@@ -424,6 +457,20 @@ LCP_sinacbc_dissolved_df$pct_sinacbc <- (LCP_sinacbc_dissolved_df$BCareasqkm/LCP
 summary(LCP_sinacbc_dissolved_df)
 hist(LCP_sinacbc_dissolved_df$pct_sinacbc, main='LCP in Biological Corridors', xlab='Percentage')
 
+# repeat for hc areas
+hc_sinacbc_dissolved <- terra::intersect(hc_polygons, sinacbc_dissolved)
+hc_sinacbc_dissolved_area <- terra::expanse(hc_sinacbc_dissolved, unit='km')
+hc_sinacbc_dissolved_df <- as.data.frame(hc_sinacbc_dissolved)
+hc_sinacbc_dissolved_df$BCareasqkm <- hc_sinacbc_dissolved_area
+names(hc_sinacbc_dissolved_df) <- c('HC_ID','BCareasqkm')
+
+hc_area_df <- data.frame(HC_ID=hc_polygons$patches, hc_areasqkm=hc_area)
+
+hc_sinacbc_dissolved_df <- left_join(hc_sinacbc_dissolved_df, hc_area_df, by='HC_ID')
+hc_sinacbc_dissolved_df$pct_sinacbc <- (hc_sinacbc_dissolved_df$BCareasqkm/hc_sinacbc_dissolved_df$hc_areasqkm)*100
+hc_sinacbc_dissolved_df$pct_sinacbc <- ifelse(hc_sinacbc_dissolved_df$pct_sinacbc >100, 100, hc_sinacbc_dissolved_df$pct_sinacbc)
+summary(hc_sinacbc_dissolved_df)
+hist(hc_sinacbc_dissolved_df$pct_sinacbc, main='HC in Biological Corridors', xlab='Percentage')
 
 ## Road crossings
 LCP_roads <- terra::intersect(top5_LCP_buff, roads)
@@ -460,6 +507,43 @@ hist(LCP_roads_summary$nPrimaria, main='LCP primary road crossings', xlab='Cross
 hist(LCP_roads_summary$nSecundaria, main='LCP secondary road crossings', xlab='Crossings')
 hist(LCP_roads_summary$nOtherRoads, main='LCP other road crossings', xlab='Crossings')
 
+# repeat for high-current areas
+hc_roads <- terra::intersect(hc_polygons, roads)
+hc_roads_df <- as.data.frame(hc_roads)
+hc_roads_df$HC_ID <- hc_roads_df$patches
+hc_roads_summary <- hc_roads_df[,c('HC_ID','TIPO')] %>%
+  dplyr::group_by(HC_ID) %>%
+  dplyr::summarize(nTotalRoads=n()) %>%
+  as.data.frame()
+
+primaria_roads_hc <- subset(hc_roads_df, TIPO=='PRIMARIA')
+primaria_roads_summary_hc <- primaria_roads_hc[,c('HC_ID','TIPO')] %>%
+  dplyr::group_by(HC_ID) %>%
+  dplyr::summarize(nPrimaria=n()) %>%
+  as.data.frame()
+
+secundaria_roads_hc <- subset(hc_roads_df, TIPO=='SECUNDARIA')
+secundaria_roads_summary_hc <- secundaria_roads_hc[,c('HC_ID','TIPO')] %>%
+  dplyr::group_by(HC_ID) %>%
+  dplyr::summarize(nSecundaria=n()) %>%
+  as.data.frame()
+
+other_roads_hc <- subset(hc_roads_df, TIPO %in% c('VECINAL','TERCIARIA'))
+other_roads_summary_hc <- other_roads_hc[,c('HC_ID','TIPO')] %>%
+  dplyr::group_by(HC_ID) %>%
+  dplyr::summarize(nOtherRoads=n()) %>%
+  as.data.frame()
+
+df_list <- list(hc_roads_summary, primaria_roads_summary_hc, secundaria_roads_summary_hc, other_roads_summary_hc)
+
+hc_roads_summary <- Reduce(function(x, y) merge(x, y, all=T), df_list)
+summary(hc_roads_summary)
+hist(hc_roads_summary$nTotalRoads, main='hc total road crossings', xlab='Crossings')
+hist(hc_roads_summary$nPrimaria, main='hc primary road crossings', xlab='Crossings')
+hist(hc_roads_summary$nSecundaria, main='hc secondary road crossings', xlab='Crossings')
+hist(hc_roads_summary$nOtherRoads, main='hc other road crossings', xlab='Crossings')
+
+
 ## Forest patches crossed
 forest_patches$patch_areasqkm <- terra::expanse(forest_patches, unit='km')
 LCP_forest_patches <- terra::intersect(top5_LCP_buff, forest_patches)
@@ -477,6 +561,23 @@ LCP_forest_patches_summary <- LCP_forest_patches_df[,c('LCP_ID','Start','patch_a
 summary(LCP_forest_patches_summary)
 hist(LCP_forest_patches_summary$nForestPatches, main='Forest patches crossed')
 
+hc_forest_patches <- terra::intersect(hc_polygons, forest_patches)
+hc_forest_patches_df <- as.data.frame(hc_forest_patches)
+hc_forest_patches_df <- hc_forest_patches_df[,c(1,4)]
+names(hc_forest_patches_df) <- c('HC_ID','patch_areasqkm')
+#hc_forest_patches_df$patch_area <- terra::expanse(hc_forest_patches, unit='km') #would just give intersecting area, not whole patch area
+hc_forest_patches_summary <- hc_forest_patches_df[,c('HC_ID','patch_areasqkm')] %>%
+  dplyr::group_by(HC_ID) %>%
+  dplyr::summarize(nForestPatches=n(),
+                   minForestPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianForestPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanForestPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxForestPatchArea=max(patch_areasqkm, na.rm=T)) %>%
+  as.data.frame()
+
+summary(hc_forest_patches_summary)
+hist(hc_forest_patches_summary$nForestPatches, main='Forest patches crossed')
+
 ## Ag patches crossed
 ag_patches$patch_areasqkm <- terra::expanse(ag_patches, unit='km')
 LCP_ag_patches <- terra::intersect(top5_LCP_buff, ag_patches)
@@ -492,6 +593,23 @@ LCP_ag_patches_summary <- LCP_ag_patches_df[,c('LCP_ID','Start','patch_areasqkm'
 
 summary(LCP_ag_patches_summary)
 hist(LCP_ag_patches_summary$nAgPatches, main='ag patches crossed')
+
+
+hc_ag_patches <- terra::intersect(hc_polygons, ag_patches)
+hc_ag_patches_df <- as.data.frame(hc_ag_patches)
+hc_ag_patches_df <- hc_ag_patches_df[,c(1,4)]
+names(hc_ag_patches_df) <- c('HC_ID','patch_areasqkm')
+hc_ag_patches_summary <- hc_ag_patches_df[,c('HC_ID','patch_areasqkm')] %>%
+  dplyr::group_by(HC_ID) %>%
+  dplyr::summarize(nAgPatches=n(),
+                   minAgPatchArea=min(patch_areasqkm, na.rm=T),
+                   medianAgPatchArea=median(patch_areasqkm, na.rm=T),
+                   meanAgPatchArea=mean(patch_areasqkm, na.rm=T),
+                   maxAgPatchArea=max(patch_areasqkm, na.rm=T)) %>%
+  as.data.frame()
+
+summary(hc_ag_patches_summary)
+hist(hc_ag_patches_summary$nAgPatches, main='ag patches crossed')
 
 ## Percent ag 
 agmat <- c(0,0,1,
@@ -510,6 +628,17 @@ LCP_ag$LCP_ID <- top5_LCP_buff$LCP_ID
 hist(LCP_ag$Ag_areasqkm)
 hist(LCP_ag$pct_ag)
 
+
+hc_ag <- terra::extract(LULC_ag, hc_polygons, fun='table', na.rm=T)
+colnames(hc_ag) <- c('HC_ID','AgCells')
+hc_ag$hc_areasqkm <- hc_area 
+hc_ag$Ag_areasqkm <- hc_ag$AgCells/10000 #(cell=100sqm, 1sqkm = 1000000 sqm, so divide number of cells by 10000 to get area in sq km)
+hc_ag$pct_ag <- (hc_ag$Ag_areasqkm/hc_ag$hc_areasqkm)*100
+hc_ag$pct_ag <- ifelse(hc_ag$pct_ag > 100, 100, hc_ag$pct_ag) #correct slightly over 100% areas
+summary(hc_ag)
+hist(hc_ag$Ag_areasqkm)
+hist(hc_ag$pct_ag)
+
 ## Percent forest 
 forestmat <- c(0,3,NA,
            4,5,1,
@@ -525,6 +654,16 @@ LCP_forest$Forest_areasqkm <- LCP_forest$ForestCells/10000
 LCP_forest$pct_forest <- (LCP_forest$Forest_areasqkm/LCP_forest$LCP_areasqkm)*100
 LCP_forest$LCP_ID <- top5_LCP_buff$LCP_ID
 hist(LCP_forest$pct_forest)
+
+
+hc_forest <- terra::extract(LULC_forest, hc_polygons, fun='table', na.rm=T)
+colnames(hc_forest) <- c('HC_ID','ForestCells')
+hc_forest$hc_areasqkm <- hc_area 
+hc_forest$Forest_areasqkm <- hc_forest$ForestCells/10000 
+hc_forest$pct_forest <- (hc_forest$Forest_areasqkm/hc_forest$hc_areasqkm)*100
+hc_forest$pct_forest <- ifelse(hc_forest$pct_forest > 100, 100, hc_forest$pct_forest) #correct slightly over 100% areas
+summary(hc_forest)
+hist(hc_forest$pct_forest)
 
 ### However, many corridors overlap for significant portions
 # Therefore, maybe it makes more sense to dissolve them
@@ -1046,6 +1185,49 @@ cor(LCP_export$nAgPatches, LCP_export$nTotalRoads_perkm, use='pairwise.complete.
 cor(LCP_export$pct_protected, LCP_export$pct_sinacbc, use='pairwise.complete.obs', method='spearman')
 cor(LCP_export$pct_protected, LCP_export$pct_forest, use='pairwise.complete.obs', method='spearman')
 cor(LCP_export$pct_protected, LCP_export$canopy_mean, use='pairwise.complete.obs', method='spearman')
+
+#### Merge, plot high-current area data ####
+hc_merger_list <- list(hc_canopy_mean, hc_elevation_range,
+                       hc_sinacbc_dissolved_df[,c(1,4)],
+                       hc_roads_summary, hc_forest_patches_summary[,c(1,2,5)], hc_ag_patches_summary[,c(1,2,5)], 
+                       hc_forest[,c(1,5)], hc_ag[,c(1,5)], hc_area_df)
+hc_export <- Reduce(function(x, y) merge(x, y, all=T), hc_merger_list)
+hc_export[is.na(hc_export)] <- 0 #NA are true 0s
+
+summary(hc_export)
+#write.csv(hc_export, file='Data/spatial/high_current_areas_characteristics.csv', row.names=F)
+
+# these are the 4 most interesting ones, but are so skewed they are not good plots
+hist(hc_export$hc_areasqkm, breaks=seq(0,200,1))
+hist(hc_export$canopy_mean, breaks=seq(0,30,1))
+hist(hc_export$pct_forest, breaks=seq(0,100,1))
+hist(hc_export$pct_ag, breaks=seq(0,100,1))
+
+hist(hc_export$elevation_range)
+hist(hc_export$pct_sinacbc, breaks=seq(0,100,1))
+hist(hc_export$nTotalRoads)
+hist(hc_export$nForestPatches)
+hist(hc_export$meanForestPatchArea)
+hist(hc_export$nAgPatches)
+hist(hc_export$meanAgPatchArea)
+
+## For potential MS table instead of figure
+hc_table <- data.frame(min=NA, pct25=NA, median=NA, pct75=NA, max=NA)
+hc_table[1,] <- stats::quantile(hc_export$hc_areasqkm)
+hc_table[2,] <- stats::quantile(hc_export$canopy_mean)
+hc_table[3,] <- stats::quantile(hc_export$pct_forest)
+hc_table[4,] <- stats::quantile(hc_export$pct_ag)
+hc_table[5,] <- stats::quantile(hc_export$elevation_range)
+hc_table[6,] <- stats::quantile(hc_export$nTotalRoads)
+hc_table[7,] <- stats::quantile(hc_export$pct_sinacbc)
+hc_table[8,] <- stats::quantile(hc_export$nForestPatches)
+hc_table[9,] <- stats::quantile(hc_export$nAgPatches)
+hc_table[10,] <- stats::quantile(hc_export$meanForestPatchArea)
+hc_table[11,] <- stats::quantile(hc_export$meanAgPatchArea)
+hc_table$var <- c('hc_areasqkm','canopy_mean','pct_forest','pct_ag',
+                  'elevation_range','nTotalRoads','pct_sinacbc',
+                  'nForestPatches','nAgPatches','meanForestPatchArea',
+                  'meanAgPatchArea')
 
 
 #######################################################
