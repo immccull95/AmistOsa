@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 2-26-24; high-current areas
+# updated: 2-27-24; corrplot
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -12,6 +12,7 @@ library(dplyr)
 library(leastcostpath)
 library(ggplot2)
 library(gridExtra)
+library(corrplot)
 
 #### Input data ####
 setwd("C:/Users/immccull/Documents/AmistOsa")
@@ -1088,8 +1089,8 @@ dev.off()
 
 #### create summary table of LCP characteristics by site ####
 big_table <- LCP_export %>%
-  group_by(Start) %>%
-  summarize(minLCP_length_km=min(LCP_length_km, na.rm=T),
+  dplyr::group_by(Start) %>%
+  dplyr::summarize(minLCP_length_km=min(LCP_length_km, na.rm=T),
             medianLCP_length_km=median(LCP_length_km, na.rm=T),
             maxLCP_length_km=max(LCP_length_km, na.rm=T),
             
@@ -1112,6 +1113,11 @@ big_table <- LCP_export %>%
             minnBC=min(nBC, na.rm=T),
             mediannBC=median(nBC, na.rm=T),
             maxnBC=max(nBC, na.rm=T),
+            
+            minmeanForestPatchArea=min(meanForestPatchArea, na.rm=T),
+            medianmeanForestPatchArea=median(meanForestPatchArea, na.rm=T),
+            maxmeanForestPatchArea=max(meanForestPatchArea, na.rm=T),
+            
             
             mincanopy_mean=min(canopy_mean, na.rm=T),
             mediancanopy_mean=median(canopy_mean, na.rm=T),
@@ -1165,6 +1171,8 @@ big_table$nAgPatches <- paste(round(big_table$minnAgPatches, 0), round(big_table
 big_table$nAgPatches_perkm <- paste(round(big_table$minnAgPatches_perkm, 0), round(big_table$mediannAgPatches_perkm, 0), round(big_table$maxnAgPatches_perkm, 0), sep=', ')
 big_table$nTotalRoads <- paste(round(big_table$minnTotalRoads, 0), round(big_table$mediannTotalRoads, 0), round(big_table$maxnTotalRoads, 0), sep=', ')
 big_table$nTotalRoads_perkm <- paste(round(big_table$minnTotalRoads_perkm, 0), round(big_table$mediannTotalRoads_perkm, 0), round(big_table$maxnTotalRoads_perkm, 0), sep=', ')
+big_table$meanForestPatchArea<- paste(round(big_table$minmeanForestPatchArea, 0), round(big_table$medianmeanForestPatchArea, 0), round(big_table$maxmeanForestPatchArea, 0), sep=', ')
+big_table$Start2 <- ifelse(big_table$Start %in% c('Osa','GD','Corcovado','Pejeperro'), 'OsaStart','OtherStart')
 
 #write.csv(big_table, file='Data/spatial/LeastCostPaths/LCP_top5_characteristics.csv', row.names=F)
 
@@ -1185,6 +1193,50 @@ cor(LCP_export$nAgPatches, LCP_export$nTotalRoads_perkm, use='pairwise.complete.
 cor(LCP_export$pct_protected, LCP_export$pct_sinacbc, use='pairwise.complete.obs', method='spearman')
 cor(LCP_export$pct_protected, LCP_export$pct_forest, use='pairwise.complete.obs', method='spearman')
 cor(LCP_export$pct_protected, LCP_export$canopy_mean, use='pairwise.complete.obs', method='spearman')
+
+cor.test(LCP_export$pct_protected, LCP_export$pct_forest, method='spearman')
+cor.test(LCP_export$pct_protected, LCP_export$canopy_mean, method='spearman')
+cor.test(LCP_export$pct_protected, LCP_export$pct_ag, method='spearman')
+cor.test(LCP_export$pct_protected, LCP_export$meanForestPatchArea, method='spearman')
+cor.test(LCP_export$pct_protected, LCP_export$nTotalRoads_perkm, method='spearman')
+cor.test(LCP_export$pct_protected, LCP_export$nForestPatches_perkm, method='spearman')
+cor.test(LCP_export$pct_protected, LCP_export$nAgPatches_perkm, method='spearman')
+
+
+cor.test(LCP_export$pct_sinacbc, LCP_export$canopy_mean, method='spearman')
+cor.test(LCP_export$pct_sinacbc, LCP_export$pct_forest, method='spearman')
+cor.test(LCP_export$pct_sinacbc, LCP_export$pct_protected, method='spearman')
+cor.test(LCP_export$pct_sinacbc, LCP_export$pct_ag, method='spearman')
+cor.test(LCP_export$pct_sinacbc, LCP_export$nTotalRoads_perkm, method='spearman')
+cor.test(LCP_export$pct_sinacbc, LCP_export$nForestPatches_perkm, method='spearman')
+cor.test(LCP_export$pct_sinacbc, LCP_export$nAgPatches_perkm, method='spearman')
+cor.test(LCP_export$pct_sinacbc, LCP_export$meanForestPatchArea, method='spearman')
+
+
+## Create supplemental correlation plot
+#library(Hmisc)
+variables <- c('canopy_mean','elevation_range','nPA','pct_protected','pct_sinacbc',
+               'nTotalRoads','nForestPatches','meanForestPatchArea','nAgPatches',
+               'meanAgPatchArea','pct_ag','nBC','LCP_length_km','nTotalRoads_perkm',
+               'nForestPatches_perkm','nAgPatches_perkm','pct_forest')
+variables_df <- LCP_export[,c(variables)]
+names(variables_df) <- c('Canopy height (m)','Elevation range (m)','PA count','Protected pct','SINAC BC pct',
+                         'Roads count', 'Forest patches count','Avg forest patch area (km2)','Ag patches count',
+                         'Avg ag patch area (km2)', 'Ag pct','SINAC BC count','LCP length (km)','Roads count per km',
+                         'Forest patches count per km','Ag patches count per km','Forest pct')
+
+
+M <- cor(variables_df, method='spearman', use='pairwise.complete.obs')
+
+par(mfrow=c(1,1))
+
+jpeg(filename='Figures/LCP_corrplot.jpeg', height=7, width=7, units='in', res=300)
+corrplot(M, tl.col='black', tl.cex=0.66, order='alphabet', mar=c(0,1,0,0), 
+         addCoef.col = 'black', number.cex = 0.66, diag=F)
+dev.off()
+
+
+
 
 #### Merge, plot high-current area data ####
 hc_merger_list <- list(hc_canopy_mean, hc_elevation_range,
@@ -1210,6 +1262,9 @@ hist(hc_export$nForestPatches)
 hist(hc_export$meanForestPatchArea)
 hist(hc_export$nAgPatches)
 hist(hc_export$meanAgPatchArea)
+
+above10 <- subset(hc_export, hc_areasqkm >= 10)
+summary(above10)
 
 ## For potential MS table instead of figure
 hc_table <- data.frame(min=NA, pct25=NA, median=NA, pct75=NA, max=NA)
