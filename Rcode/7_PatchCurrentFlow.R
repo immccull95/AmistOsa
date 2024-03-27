@@ -1,6 +1,6 @@
-################## Identifying corridors from Circuitscape output #################
+################## Analyze current flow through forest and ag patches #############
 # Date: 11-7-23
-# updated: 12-13-23
+# updated: 3-27-24: update histogram aesthetics
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -215,27 +215,31 @@ ag_polygons_current_shp <- terra::merge(ag_patches, ag_polygon_current_df, by='R
 
 ### Export forest and ag mean current plots
 
+#mar: bottom, left, top, right
+
 jpeg(filename='Figures/AmistOsa_Forest_mean_current.jpeg', height=3, width=3.5, units='in', res=300)
-  par(mfrow=c(1,1))
-  hist(forest_polygon_current_df$mean, main='Forest patches',
-     xlab='Mean current', xlim=c(0,2), breaks=seq(0,7,0.1))
+  #par(mfrow=c(1,1))
+  par(mgp=c(1,0.1,0), mar = c(2, 2.5, 1.5, 0.5), tck=-0.01, mfrow=c(1,1))
+  hist(forest_polygon_current_df$mean, main='Forest patches', cex.axis=0.75,
+     xlab='Mean current', xlim=c(0,2), ylim=c(0,2000), breaks=seq(0,2,0.05))
 dev.off()
 
 jpeg(filename='Figures/AmistOsa_Ag_mean_current.jpeg', height=3, width=3.5, units='in', res=300)
-  par(mfrow=c(1,1))
-  hist(ag_polygon_current_df$mean, main='Agriculture patches',
-     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.1))
+  #par(mfrow=c(1,1))
+  par(mgp=c(1,0.1,0), mar = c(2, 2.5, 1.5, 0.5), tck=-0.01, mfrow=c(1,1))
+  hist(ag_polygon_current_df$mean, main='Agriculture patches', cex.axis=0.75,
+     xlab='Mean current', xlim=c(0,2), breaks=seq(0,2,0.05))
 dev.off()
 
-jpeg(filename='Figures/AmistOsa_Forest_max_current.jpeg', height=3, width=3.5, units='in', res=300)
-par(mfrow=c(1,1))
-hist(forest_polygon_current_df$max, main='Forest patches',
-     xlab='Max current', xlim=c(0,5), breaks=seq(0,1347,0.1))
-dev.off()
-
-jpeg(filename='Figures/AmistOsa_Ag_max_current.jpeg', height=3, width=3.5, units='in', res=300)
-par(mfrow=c(1,1))
-hist(ag_polygon_current_df$max, main='Agriculture patches',
-     xlab='Max current', xlim=c(0,5), breaks=seq(0,11,0.1))
-dev.off()
+# jpeg(filename='Figures/AmistOsa_Forest_max_current.jpeg', height=3, width=3.5, units='in', res=300)
+# par(mfrow=c(1,1))
+# hist(forest_polygon_current_df$max, main='Forest patches',
+#      xlab='Max current', xlim=c(0,5), breaks=seq(0,1347,0.1))
+# dev.off()
+# 
+# jpeg(filename='Figures/AmistOsa_Ag_max_current.jpeg', height=3, width=3.5, units='in', res=300)
+# par(mfrow=c(1,1))
+# hist(ag_polygon_current_df$max, main='Agriculture patches',
+#      xlab='Max current', xlim=c(0,5), breaks=seq(0,11,0.1))
+# dev.off()
 

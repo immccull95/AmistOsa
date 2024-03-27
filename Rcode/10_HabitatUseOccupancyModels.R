@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: habitat use and occupancy #########
 # Date: 1-3-24
-# updated: 2-16-24: new synthetic results figure
+# updated: 3-20-24: export capture rate data
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -41,6 +41,8 @@ plot(total_cr$Tapirus.bairdii ~ total_obs$Tapirus.bairdii,
      ylab="Capture rate per 100 days", 
      xlab="Number of independent records",
      main='Tapir')
+
+#write.csv(total_cr, file='Data/spatial/CameraTraps/capture_rates.csv', row.names=F)
 
 ## Prepare data for modeling
 # Convert to categorical factors

@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: traits, site attributes, community data #########
 # Date: 12-14-23
-# updated: 2-19-24: export data to analyze in script 11
+# updated: 3-20-24: update a comment
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -327,6 +327,7 @@ capped$WLP_rate <- capped$WLP/capped$days
 capped <- merge(capped, cameras_merger[,c('placename','mean_current','mean_conductance','Protected','natlpark')], by='placename')
 
 # Analyze in another script (too involved here):
+# Note: not using this anymore; using a different capture rate calculation in script 10
 #write.csv(capped, file='Data/spatial/CameraTraps/capture_rates.csv', row.names=F)
 
 ## 8.6: Species co-occurrences
