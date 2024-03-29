@@ -1,2 +1,11 @@
 # AmistOsa
-Analysis of landscape structure and connectedness for mapping climate adaptation corridors in the AmistOsa landscape of Costa Rica
+High-resolution mapping and validation of potential climate adaptation corridors in the AmistOsa landscape of Costa Rica. A fully documented, complete version of this repository will be archived with a DOI upon manuscript publication.
+
+# Data
+Input geospatial layers and output files. Camera trap data are not included. Many geospatial layers are too large for this repository, however, and will be published later in another location.
+
+# Rcode
+R scripts
+
+# Figures
+folder to store figures
