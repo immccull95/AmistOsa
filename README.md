@@ -4,8 +4,10 @@ High-resolution mapping and validation of potential climate adaptation corridors
 # Data
 Input geospatial layers and output files. Camera trap data are not included. Many geospatial layers are too large for this repository, however, and will be published later in another location.
 
+# Figures
+folder to store figures
+
 # Rcode
 R scripts
 
-# Figures
-folder to store figures
+
