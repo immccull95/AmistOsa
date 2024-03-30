@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: capture rates vs. conductance and current #######
 # Date: 2-19-24
-# updated: 3-26-24
+# updated: 3-30-24; remove mislabeld WLP detection
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -21,6 +21,9 @@ setwd("C:/Users/immccull/Documents/AmistOsa")
 
 # capture rate data
 capped <- read.csv("Data/spatial/CameraTraps/capture_rates.csv")
+
+# update: remove white-lipped peccary detection at MS#31 (mislabeled)
+capped$Tayassu.pecari <- ifelse(capped$placename=='MS#31', 0, capped$Tayassu.pecari)
 
 # camera attribute data
 cameras_merger <- read.csv("Data/spatial/CameraTraps/wildlife-insights/processed_data/camera_site_attributes_500mbuff.csv")
