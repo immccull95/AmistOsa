@@ -1,6 +1,6 @@
 ################## AmistOsa landscape structure analysis ##########################
 # Date: 9-26-23
-# updated: 1-4-24; combine some LULC classes for simpler mapping
+# updated: 4-8-24; LULC calculations for protected areas
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -47,6 +47,9 @@ ag_patch_area <- read.csv("Data/spatial/LandscapeStructure/ag_patch_area.csv")
 
 # Protected areas
 protected_areas <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa.shp")
+
+# protected area full polygons and multi-part Terraba Sierpe
+AmistOsa_pa_full <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa_fullpolygons_focal.shp")
 
 #### Main program ####
 # frequencies of LULC types across landscape
@@ -219,7 +222,6 @@ ggplot(pie_data, aes(x = "", y = pct, fill = TypeFac)) +
   theme(plot.title = element_text(hjust = 0.8))
 dev.off()
 #write.csv(pie_data, file='Data/spatial/LULC/AmistOsa_LULC.csv', row.names=F)
-
 
 # Add in rivers: for now, skipping this part 
 # try adding in rivers with no buffer or anything else
@@ -477,3 +479,106 @@ ag_patch_cohesion <- lsm_l_cohesion(AmistOsa_ag_masked, directions=8)
 # edge and patch density
 edge_density <- lsm_l_ed(AmistOsa_ag_masked, directions=8)
 patch_density <- lsm_l_pd(AmistOsa_ag_masked, directions=8)# output is per 100 ha, so per sq km
+
+####
+## Calculate LULC within focal protected areas
+golfito <- subset(AmistOsa_pa_full, AmistOsa_pa_full$NAME=='Golfito')
+golfito_LULC <- terra::mask(mapLULC_mosaic, golfito, inverse=F)
+plot(golfito)
+plot(golfito_LULC, add=T)
+golfito_df <- freq(golfito_LULC)
+golfito_df <- merge(golfito_df, pie_data[,c('value','Type')], by='value')
+golfito_df$totalareasqkm <- terra::expanse(golfito, unit='km')
+golfito_df$areasqkm <- (golfito_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+golfito_df$prop <- golfito_df$areasqkm/golfito_df$totalareasqkm
+golfito_df$pct <- golfito_df$prop *100
+
+corcovado <- subset(AmistOsa_pa_full, AmistOsa_pa_full$NAME=='Corcovado')
+corcovado_LULC <- terra::mask(mapLULC_mosaic, corcovado, inverse=F)
+plot(corcovado)
+plot(corcovado_LULC, add=T)
+corcovado_df <- freq(corcovado_LULC)
+corcovado_df <- merge(corcovado_df, pie_data[,c('value','Type')], by='value')
+corcovado_df$totalareasqkm <- terra::expanse(corcovado, unit='km')
+corcovado_df$areasqkm <- (corcovado_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+corcovado_df$prop <- corcovado_df$areasqkm/corcovado_df$totalareasqkm
+corcovado_df$pct <- corcovado_df$prop *100
+
+GolfoDulce <- subset(AmistOsa_pa_full, AmistOsa_pa_full$NAME=='Golfo Dulce')
+GolfoDulce_LULC <- terra::mask(mapLULC_mosaic, GolfoDulce, inverse=F)
+plot(GolfoDulce)
+plot(GolfoDulce_LULC, add=T)
+GolfoDulce_df <- freq(GolfoDulce_LULC)
+GolfoDulce_df <- merge(GolfoDulce_df, pie_data[,c('value','Type')], by='value')
+GolfoDulce_df$totalareasqkm <- terra::expanse(GolfoDulce, unit='km')
+GolfoDulce_df$areasqkm <- (GolfoDulce_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+GolfoDulce_df$prop <- GolfoDulce_df$areasqkm/GolfoDulce_df$totalareasqkm
+GolfoDulce_df$pct <- GolfoDulce_df$prop *100
+
+Pejeperro <- subset(AmistOsa_pa_full, AmistOsa_pa_full$NAME=='Pejeperro')
+Pejeperro_LULC <- terra::mask(mapLULC_mosaic, Pejeperro, inverse=F)
+plot(Pejeperro)
+plot(Pejeperro_LULC, add=T)
+Pejeperro_df <- freq(Pejeperro_LULC)
+Pejeperro_df <- merge(Pejeperro_df, pie_data[,c('value','Type')], by='value')
+Pejeperro_df$totalareasqkm <- terra::expanse(Pejeperro, unit='km')
+Pejeperro_df$areasqkm <- (Pejeperro_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+Pejeperro_df$prop <- Pejeperro_df$areasqkm/Pejeperro_df$totalareasqkm
+Pejeperro_df$pct <- Pejeperro_df$prop *100
+
+Osa <- subset(AmistOsa_pa_full, AmistOsa_pa_full$NAME=='Osa')
+Osa_LULC <- terra::mask(mapLULC_mosaic, Osa, inverse=F)
+plot(Osa)
+plot(Osa_LULC, add=T)
+Osa_df <- freq(Osa_LULC)
+Osa_df <- merge(Osa_df, pie_data[,c('value','Type')], by='value')
+Osa_df$totalareasqkm <- terra::expanse(Osa, unit='km')
+Osa_df$areasqkm <- (Osa_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+Osa_df$prop <- Osa_df$areasqkm/Osa_df$totalareasqkm
+Osa_df$pct <- Osa_df$prop *100
+
+PiedrasBlancas <- subset(AmistOsa_pa_full, AmistOsa_pa_full$NAME=='Piedras Blancas')
+PiedrasBlancas_LULC <- terra::mask(mapLULC_mosaic, PiedrasBlancas, inverse=F)
+plot(PiedrasBlancas)
+plot(PiedrasBlancas_LULC, add=T)
+PiedrasBlancas_df <- freq(PiedrasBlancas_LULC)
+PiedrasBlancas_df <- merge(PiedrasBlancas_df, pie_data[,c('value','Type')], by='value')
+PiedrasBlancas_df$totalareasqkm <- terra::expanse(PiedrasBlancas, unit='km')
+PiedrasBlancas_df$areasqkm <- (PiedrasBlancas_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+PiedrasBlancas_df$prop <- PiedrasBlancas_df$areasqkm/PiedrasBlancas_df$totalareasqkm
+PiedrasBlancas_df$pct <- PiedrasBlancas_df$prop *100
+
+TSE <- AmistOsa_pa_full[8,]
+TSE_LULC <- terra::mask(mapLULC_mosaic, TSE, inverse=F)
+plot(TSE)
+plot(TSE_LULC, add=T)
+TSE_df <- freq(TSE_LULC)
+TSE_df <- merge(TSE_df, pie_data[,c('value','Type')], by='value')
+TSE_df$totalareasqkm <- terra::expanse(TSE, unit='km')
+TSE_df$areasqkm <- (TSE_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+TSE_df$prop <- TSE_df$areasqkm/TSE_df$totalareasqkm
+TSE_df$pct <- TSE_df$prop *100
+
+TSW <- AmistOsa_pa_full[9,]
+TSW_LULC <- terra::mask(mapLULC_mosaic, TSW, inverse=F)
+plot(TSW)
+plot(TSW_LULC, add=T)
+TSW_df <- freq(TSW_LULC)
+TSW_df <- merge(TSW_df, pie_data[,c('value','Type')], by='value')
+TSW_cut <- terra::intersect(TSW, AmistOsa) #only use portion that is within AmistOsa study area
+TSW_df$totalareasqkm <- terra::expanse(TSW_cut, unit='km')
+TSW_df$areasqkm <- (TSW_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+TSW_df$prop <- TSW_df$areasqkm/TSW_df$totalareasqkm
+TSW_df$pct <- TSW_df$prop *100
+
+PILA <- subset(AmistOsa_pa_full, AmistOsa_pa_full$NAME=='Talamanca Range-La Amistad Reserves / La Amistad National Park')
+PILA_LULC <- terra::mask(mapLULC_mosaic, PILA, inverse=F)
+plot(PILA)
+plot(PILA_LULC, add=T)
+PILA_df <- freq(PILA_LULC)
+PILA_df <- merge(PILA_df, pie_data[,c('value','Type')], by='value')
+PILA_cut <- terra::intersect(PILA, AmistOsa) #only use portion that is within AmistOsa study area
+PILA_df$totalareasqkm <- terra::expanse(PILA_cut, unit='km')
+PILA_df$areasqkm <- (PILA_df$count * 100) /1e6 #convert ncells to sq m then to sq km
+PILA_df$prop <- PILA_df$areasqkm/PILA_df$totalareasqkm
+PILA_df$pct <- PILA_df$prop *100

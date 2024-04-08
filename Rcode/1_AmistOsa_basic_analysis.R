@@ -1,6 +1,6 @@
 ####################### AmistOsa landscape case study #############################
 # Date: 9-25-23
-# updated: 10-6-23
+# updated: 4-8-24
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -8,7 +8,7 @@
 library(terra)
 
 #### Input data ####
-setwd("C:/Users/immcc/Documents/AmistOsa")
+setwd("C:/Users/immccull/Documents/AmistOsa")
 
 hubs <- terra::vect("Data/spatial/ClimateHubs/draft_climate_hubs.shp")
 #AmistOsa <- subset(hubs, hubs$ID=='Amistosa')
@@ -23,9 +23,9 @@ focal_pa <- terra::vect("Data/spatial/protected_areas/focal_pa_31971_onland.shp"
 focal_pa$ISO3 <- ifelse(focal_pa$ISO3=='CRI;PAN', 'CRI', focal_pa$ISO3) #one PA is designated as both in CR and Panama; designating as CR for now because more of it occurs in CR
 
 # DEM
-# srtm_all <- terra::rast("Data/spatial/SRTM/SRTM90_V4.elevation_all.tif")
-# srtm_all_proj <- terra::project(srtm_all, "EPSG:31971", 
-#                                 method='average', res=c(90,90))
+srtm_all <- terra::rast("Data/spatial/SRTM/SRTM90_V4.elevation_all.tif")
+srtm_all_proj <- terra::project(srtm_all, "EPSG:31971",
+                                method='average', res=c(90,90))
 # srtm_all_proj_mask <- terra::crop(srtm_all_proj, AmistOsa, mask=T)
 # plot(srtm_all_proj_mask)
 # terra::writeRaster(srtm_all_proj_mask, filename='Data/spatial/SRTM/SRTM_90m_31971_AmistOsa.tif', overwrite=T)
@@ -121,6 +121,17 @@ title('Dissolved protected areas')
 # size distributions (sq km)
 hist(AmistOsa_pa$GIS_AREA, main='Overlapping PAs: full area') #full area of PAs
 hist(terra::expanse(AmistOsa_pa)/1000000, main='Overlapping PAs: overlapping area only')
+
+# Identify individual lowland PAs
+AmistOsa_pa_full <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa_fullpolygons_focal.shp")
+
+AmistOsa_pa_full_df <- as.data.frame(AmistOsa_pa_full)
+AmistOsa_pa_full_df$areasqkm <- terra::expanse(AmistOsa_pa_full, unit="km")
+
+AmistOsa_pa_full_elevmean <- terra::extract(srtm_all_proj, AmistOsa_pa_full, fun="mean", na.rm=T)
+AmistOsa_pa_full_elevmin <- terra::extract(srtm_all_proj, AmistOsa_pa_full, fun="min", na.rm=T)
+AmistOsa_pa_full_elevmax <- terra::extract(srtm_all_proj, AmistOsa_pa_full, fun="max", na.rm=T)
+AmistOsa_pa_full_df$elevmean <- AmistOsa_pa_full_elevmean
 
 ## Terrain
 # 90m
