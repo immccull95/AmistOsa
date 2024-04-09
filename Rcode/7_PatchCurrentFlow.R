@@ -1,6 +1,6 @@
 ################## Analyze current flow through forest and ag patches #############
 # Date: 11-7-23
-# updated: 3-27-24: update histogram aesthetics
+# updated: 4-9-24: update "high-connectivity" patch analysis
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -87,6 +87,13 @@ protected_areas <- terra::vect("Data/spatial/protected_areas/AmistOsa_pa.shp")
 plot(AmistOsa)
 plot(forest_patches, add=T, col='forestgreen')
 
+# when you mask out protected areas, you can create more patches
+# are these true patches? They are unprotected fragments, so I guess "yes"
+# the alternative is to select out forest patches that do not overlap with PAs
+# but then you downplay these and run into issues with very small PAs (could remove those, annoying extra step)
+# test <- terra::intersect(forest_patches, protected_areas)
+# test2 <- terra::subset(forest_patches, !(forest_patches$ID %in% test$ID))
+
 # mask out areas in protected areas; focus restoration/conservation on unprotected areas
 pa_mask <- terra::rasterize(protected_areas, current_flow)
 plot(pa_mask)
@@ -113,6 +120,11 @@ forest_polygon_current_df <- cbind.data.frame(forest_polygon_current_min[,c(1,2)
                                               forest_polygon_current_max[,2],
                                               forest_polygon_current_mean[,2])
 colnames(forest_polygon_current_df) <- c('Rowid','min','median','max','mean')
+
+#forest_patch_area <- terra::expanse(forest_patches, unit="km")
+forest_patch_area <- terra::expanse(forest_unprotected_polygons, unit="km")
+forest_polygon_current_df$patch_areasqkm <- forest_patch_area
+
 summary(forest_polygon_current_df)
 #write.csv(forest_polygon_current_df, file='Data/spatial/LandscapeStructure/forest_patch_current.csv', row.names=F)
 #write.csv(forest_polygon_current_df, file='Data/spatial/LandscapeStructure/forest_patch_unprotected_current.csv', row.names=F)
@@ -128,8 +140,12 @@ hist(forest_polygon_current_df$max, main='Forest patch maximum current',
 hist(forest_polygon_current_df$mean, main='Forest patch mean current',
      xlab='Mean current')
 
-forest_patch_area <- terra::expanse(forest_patches, unit="km")
-forest_polygon_current_df$patch_areasqkm <- forest_patch_area
+
+cor(forest_polygon_current_df$mean, forest_polygon_current_df$patch_areasqkm, method='spearman', use='pairwise.complete.obs')
+quantile(forest_polygon_current_df$mean, na.rm=T, probs=seq(0,1,0.1))
+
+high_current_forest_patches <- subset(forest_polygon_current_df, mean >= 0.35772676)
+summary(high_current_forest_patches)
 
 par(mfrow=c(2,2))
 plot(mean ~ patch_areasqkm, data=forest_polygon_current_df, pch=20,
@@ -176,7 +192,18 @@ ag_polygon_current_df <- cbind.data.frame(ag_polygon_current_min[,c(1,2)],
                                           ag_polygon_current_mean[,2])
 colnames(ag_polygon_current_df) <- c('Rowid','min','median','max','mean')
 summary(ag_polygon_current_df)
+
+ag_polygon_current_df$areasqm <- terra::expanse(ag_polygons, unit='m')
+cor(ag_polygon_current_df$mean, ag_polygon_current_df$areasqm, method='spearman', use='pairwise.complete.obs')
+
 #write.csv(ag_polygon_current_df, file='Data/spatial/LandscapeStructure/ag_patch_current.csv', row.names=F)
+
+quantile(ag_polygon_current_df$mean, na.rm=T, probs=seq(0,1,0.1))
+
+high_current_ag_patches <- subset(ag_polygon_current_df, mean >= 0.16896208)
+high_current_ag_patches$areasqkm <- high_current_ag_patches$areasqm/1000000
+summary(high_current_ag_patches)
+
 
 par(mfrow=c(2,2))
 hist(ag_polygon_current_df$min, main='ag patch minimum current',
