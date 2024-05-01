@@ -1,6 +1,6 @@
 ################## AmistOsa least cost path characteristics #######################
 # Date: 10-31-23
-# updated: 2-27-24; corrplot
+# updated: 5-1-24; recalculate BC overlap outside PAs only
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -419,6 +419,8 @@ hist(LCP_protection_dissolved_df$pct_protected, main='LCP protection', xlab='Per
 
 ## LCP overlap with SINAC Biological Corridors
 LCP_sinacbc <- terra::intersect(top5_LCP_buff, sinacbc)
+# update: use only portions of SINAC BCs outside protected areas
+LCP_sinacbc <- terra::erase(LCP_sinacbc, protected_areas_dissolved) #this line shouldn't have huge effect, as BCs are not supposed to be in PAs, but may be minor overlap
 LCP_sinacbc_df <- as.data.frame(LCP_sinacbc)
 
 plot(AmistOsa)
@@ -440,20 +442,25 @@ plot(AmistOsa)
 plot(sinacbc, add=T, col='dodgerblue')
 plot(sinacbc_dissolved, add=T, col='red')
 
-LCP_sinacbc_dissolved <- terra::intersect(top5_LCP_buff, sinacbc_dissolved)
+# update: only use portion of LCP outside protected area
+top5_LCP_buff_unprotected <- terra::erase(top5_LCP_buff, protected_areas_dissolved)
+LCP_area_unprotected <- terra::expanse(top5_LCP_buff_unprotected, unit='km')
+
+LCP_sinacbc_dissolved <- terra::intersect(top5_LCP_buff_unprotected, sinacbc_dissolved)
 LCP_sinacbc_dissolved_area <- terra::expanse(LCP_sinacbc_dissolved, unit='km')
 LCP_sinacbc_dissolved_df <- as.data.frame(LCP_sinacbc_dissolved)
 LCP_sinacbc_dissolved_df$BCareasqkm <- LCP_sinacbc_dissolved_area
 
 plot(AmistOsa)
 plot(sinacbc_dissolved, add=T, col='forestgreen')
-plot(top5_LCP_buff, add=T, col='turquoise')
+plot(top5_LCP_buff, add=T, col='gray')
+plot(top5_LCP_buff_unprotected, add=T, col='turquoise')
 plot(LCP_sinacbc_dissolved, add=T, col='gold')
 
 # % sinacbc per LCP
 LCP_area <- terra::expanse(top5_LCP_buff, unit='km')
 
-LCP_sinacbc_dissolved_df$LCP_areasqkm <- LCP_area
+LCP_sinacbc_dissolved_df$LCP_areasqkm <- LCP_area_unprotected
 LCP_sinacbc_dissolved_df$pct_sinacbc <- (LCP_sinacbc_dissolved_df$BCareasqkm/LCP_sinacbc_dissolved_df$LCP_areasqkm)*100
 summary(LCP_sinacbc_dissolved_df)
 hist(LCP_sinacbc_dissolved_df$pct_sinacbc, main='LCP in Biological Corridors', xlab='Percentage')

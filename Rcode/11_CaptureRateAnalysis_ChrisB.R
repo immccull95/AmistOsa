@@ -1,6 +1,6 @@
 ########## AmistOsa camera traps: capture rates vs. conductance and current #######
 # Date: 2-19-24
-# updated: 3-30-24; remove mislabeld WLP detection
+# updated: 5-1-24; update plot titles
 # Author: Ian McCullough, immccull@gmail.com
 ###################################################################################
 
@@ -333,12 +333,13 @@ newdat$pred_u95 <- exp(tmp$fit+(2*tmp$se.fit))
 newdat$pred_l95 <- exp(tmp$fit-(2*tmp$se.fit))
 
 # Make a plot of the data with CIs 
+tapirtitle <- "A) Baird's tapir"
 jpeg(filename='Figures/capturerate_conductance_tapir.jpeg', height=2, width=2, units='in', res=300)
 par(mgp=c(0.5,0.1,0), mar = c(1.5, 1, 0.75, 0.5), tck=-0.01) #mar: bottom, left, top, right
 plot(newdat$mean_conductance, newdat$pred_100 , type="l", lwd=2, ylim=c(0, max(newdat$pred_u95)), las=1,
      ylab="Capture rate (100 days)", xlab="Mean conductance",
      cex.axis=0.4, cex.lab=0.4)
-title('A) Tapir', adj=0, cex.main=0.5, line= 0.25)
+title(tapirtitle, adj=0, cex.main=0.5, line= 0.25)
 polygon(c(newdat$mean_conductance, rev(newdat$mean_conductance)), c(newdat$pred_l95, rev(newdat$pred_u95)), col=rgb(0,0,0,0.2), border=NA)
 
 # If you want to add points
@@ -346,21 +347,21 @@ points((mod_dat$Tapirus.bairdii/mod_dat$days)*100 ~ mod_dat$mean_conductance, pc
 dev.off()
 
 
-dd <- as.data.frame(mod_dat[,c('mean_conductance','Tapirus.bairdii','days')])
-dd$Tapirus.bairdii <- (dd$Tapirus.bairdii/dd$days)*100
-tapir_condplot <- ggplot(newdat, aes(x=mean_conductance, y=pred_100)) + 
-  geom_smooth(method='glm.nb', color='black', fill='gray')+
-  theme_classic()+
-  theme(axis.text.y=element_text(color='black', size=axistest_size),
-        axis.text.x=element_text(color='black', size=axistest_size),
-        plot.title=element_text(size=title_size),
-        axis.title.x=element_text(color='black', size=axistest_size),
-        axis.title.y=element_text(color='black', size=axistest_size))+
-  scale_y_continuous(limits=c(0, max(newdat$pred_u95)), name='Capture rate (100 days)')+
-  scale_x_continuous(limits=c(0,1000), name='Mean conductance')+
-  ggtitle('A) Tapir')+
-  geom_point(data=dd, aes(x=mean_conductance, y=Tapirus.bairdii), col=plot_colors[1])
-tapir_condplot
+# dd <- as.data.frame(mod_dat[,c('mean_conductance','Tapirus.bairdii','days')])
+# dd$Tapirus.bairdii <- (dd$Tapirus.bairdii/dd$days)*100
+# tapir_condplot <- ggplot(newdat, aes(x=mean_conductance, y=pred_100)) + 
+#   geom_smooth(method='glm.nb', color='black', fill='gray')+
+#   theme_classic()+
+#   theme(axis.text.y=element_text(color='black', size=axistest_size),
+#         axis.text.x=element_text(color='black', size=axistest_size),
+#         plot.title=element_text(size=title_size),
+#         axis.title.x=element_text(color='black', size=axistest_size),
+#         axis.title.y=element_text(color='black', size=axistest_size))+
+#   scale_y_continuous(limits=c(0, max(newdat$pred_u95)), name='Capture rate (100 days)')+
+#   scale_x_continuous(limits=c(0,1000), name='Mean conductance')+
+#   ggtitle(tapirtitle)+
+#   geom_point(data=dd, aes(x=mean_conductance, y=Tapirus.bairdii), col=plot_colors[1])
+# tapir_condplot
 
 ## jaguar
 # Run a model - count against conductance with an effort offset
@@ -451,7 +452,7 @@ par(mgp=c(0.5,0.1,0), mar = c(1.5, 1, 0.75, 0.5), tck=-0.01) #mar: bottom, left,
 plot(newdat$mean_conductance, newdat$pred_100 , type="l", lwd=2, ylim=c(0, 5), las=1,
      ylab="Capture rate (100 days)", xlab="Mean conductance",
      cex.axis=0.4, cex.lab=0.4)
-title('C) WLP', adj=0, cex.main=0.5, line= 0.25)
+title('C) White-lipped peccary', adj=0, cex.main=0.5, line= 0.25)
 polygon(c(newdat$mean_conductance, rev(newdat$mean_conductance)), c(newdat$pred_l95, rev(newdat$pred_u95)), col=rgb(0,0,0,0.2), border=NA)
 
 # If you want to add points
@@ -540,7 +541,7 @@ par(mgp=c(0.5,0.1,0), mar = c(1.5, 1, 0.75, 0.5), tck=-0.01) #mar: bottom, left,
 plot(newdat$mean_conductance, newdat$pred_100 , type="l", lwd=2, ylim=c(0, 11), las=1,
      ylab="Capture rate (100 days)", xlab="Mean conductance",
      cex.axis=0.4, cex.lab=0.4)
-title('E) Collared', adj=0, cex.main=0.5, line= 0.25)
+title('E) Collared peccary', adj=0, cex.main=0.5, line= 0.25)
 polygon(c(newdat$mean_conductance, rev(newdat$mean_conductance)), c(newdat$pred_l95, rev(newdat$pred_u95)), col=rgb(0,0,0,0.2), border=NA)
 
 # If you want to add points
@@ -582,7 +583,7 @@ par(mgp=c(0.5,0.1,0), mar = c(1.5, 1, 0.75, 0.5), tck=-0.01) #mar: bottom, left,
 plot(newdat$mean_conductance, newdat$pred_100 , type="l", lwd=2, ylim=c(0,12), las=1,
      ylab="Capture rate (100 days)", xlab="Mean conductance",
      cex.axis=0.4, cex.lab=0.4)
-title('F) Curassow', adj=0, cex.main=0.5, line= 0.25)
+title('F) Great curassow', adj=0, cex.main=0.5, line= 0.25)
 polygon(c(newdat$mean_conductance, rev(newdat$mean_conductance)), c(newdat$pred_l95, rev(newdat$pred_u95)), col=rgb(0,0,0,0.2), border=NA)
 
 # If you want to add points
@@ -625,7 +626,7 @@ par(mgp=c(0.5,0.1,0), mar = c(1.5, 1, 0.75, 0.5), tck=-0.01) #mar: bottom, left,
 plot(newdat$mean_conductance, newdat$pred_100 , type="l", lwd=2, ylim=c(0,7), las=1,
      ylab="Capture rate (100 days)", xlab="Mean conductance",
      cex.axis=0.4, cex.lab=0.4)
-title('G) Paca', adj=0, cex.main=0.5, line= 0.25)
+title('G) Spotted paca', adj=0, cex.main=0.5, line= 0.25)
 polygon(c(newdat$mean_conductance, rev(newdat$mean_conductance)), c(newdat$pred_l95, rev(newdat$pred_u95)), col=rgb(0,0,0,0.2), border=NA)
 
 # If you want to add points
